@@ -1,0 +1,1735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Principal Components Lab</title>
+<meta name="description" content="Interactive study guide for §20.1 of Murphy's Probabilistic Machine Learning: principal components analysis as minimum reconstruction error and maximum variance, eigendigits, covariance vs correlation, the Gram-matrix trick for D > N, PCA by (randomized) SVD, and choosing the number of components with reconstruction error, scree plots, fraction of variance explained and the profile likelihood. Explanations at four levels, from elementary school to grad-level ML.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<script>
+window.MathJax = {
+  loader: { load: ['[tex]/html'] },
+  tex: { packages: { '[+]': ['html'] }, inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+  svg: { fontCache: 'global' },
+  options: { enableMenu: false }
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js" async></script>
+<style>
+/* Layout: sticky chapter rail + one reading column; every section runs Explain it → Play → Math, slowly → Check yourself */
+:root {
+  --bg: #f3f1ec; --surface: #ffffff; --sunk: #e9e5dc; --ink: #1d1b18; --muted: #5f5a52; --rule: #d9d3c6;
+  --c0: #c0392b; --c1: #1f5fa8; --c2: #1d7a49; --c3: #a35d00; --c4: #6a3fc1; --c5: #0f7f86; --c6: #b0377f; --c7: #6b6b2a;
+  --gap: #a35d00; --mi: #6a3fc1; --green: #1d7a49; --red: #c0392b;
+  --c0-soft: rgba(192,57,43,.13); --c1-soft: rgba(31,95,168,.14); --c2-soft: rgba(29,122,73,.14); --gap-soft: rgba(163,93,0,.16); --mi-soft: rgba(106,63,193,.14); --green-soft: rgba(29,122,73,.14); --red-soft: rgba(192,57,43,.13);
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12110f; --surface: #1b1a17; --sunk: #25231f; --ink: #ece7de; --muted: #a59e92; --rule: #35322c;
+    --c0: #f0776a; --c1: #6ea8ec; --c2: #52c48a; --c3: #e2a34b; --c4: #b393f2; --c5: #4cc4cc; --c6: #ea7fbf; --c7: #c2c26a;
+    --gap: #e2a34b; --mi: #b393f2; --green: #52c48a; --red: #f0776a;
+    --c0-soft: rgba(240,119,106,.18); --c1-soft: rgba(110,168,236,.18); --c2-soft: rgba(82,196,138,.16); --gap-soft: rgba(226,163,75,.2); --mi-soft: rgba(179,147,242,.2); --green-soft: rgba(82,196,138,.16); --red-soft: rgba(240,119,106,.18);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12110f; --surface: #1b1a17; --sunk: #25231f; --ink: #ece7de; --muted: #a59e92; --rule: #35322c;
+  --c0: #f0776a; --c1: #6ea8ec; --c2: #52c48a; --c3: #e2a34b; --c4: #b393f2; --c5: #4cc4cc; --c6: #ea7fbf; --c7: #c2c26a;
+  --gap: #e2a34b; --mi: #b393f2; --green: #52c48a; --red: #f0776a;
+  --c0-soft: rgba(240,119,106,.18); --c1-soft: rgba(110,168,236,.18); --c2-soft: rgba(82,196,138,.16); --gap-soft: rgba(226,163,75,.2); --mi-soft: rgba(179,147,242,.2); --green-soft: rgba(82,196,138,.16); --red-soft: rgba(240,119,106,.18);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.6; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 0 80px; display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 0; padding-inline: 16px; } .rail { display: none; } }
+
+/* top bar */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); border-bottom: 1px solid var(--rule); }
+.topbar-in { max-width: 1180px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 14px; }
+.brand { font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; }
+.brand span { color: var(--mi); }
+.chips { display: none; overflow-x: auto; gap: 6px; flex: 1; min-width: 0; scrollbar-width: none; }
+.chips a { font-family: var(--mono); font-size: 12px; white-space: nowrap; padding: 4px 9px; border: 1px solid var(--rule); border-radius: 99px; color: var(--ink); text-decoration: none; }
+@media (max-width: 900px) { .chips { display: flex; } .topbar-in { padding: 10px 16px; flex-wrap: wrap; row-gap: 8px; } .brand { display: none; } }
+.tb-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.score { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; padding: 5px 10px; border-radius: 99px; background: var(--surface); border: 1px solid var(--rule); }
+.score b { color: var(--green); }
+.lvpick { display: inline-flex; border: 1px solid var(--rule); border-radius: 99px; overflow: hidden; background: var(--surface); }
+.lvpick button { font-family: var(--mono); font-size: 11.5px; padding: 5px 9px; border: 0; background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.lvpick button.on { background: var(--mi); color: #fff; }
+@media (max-width: 900px) { .tb-right { margin-left: 0; width: 100%; justify-content: space-between; } }
+
+/* rail */
+.rail nav { position: sticky; top: 70px; padding-top: 40px; display: flex; flex-direction: column; gap: 2px; }
+.rail a { display: grid; grid-template-columns: 70px 1fr; gap: 4px; padding: 6px 8px; border-radius: 6px; color: var(--muted); text-decoration: none; font-family: var(--display); font-size: 14.5px; line-height: 1.3; }
+.rail a .n { font-family: var(--mono); font-size: 11.5px; padding-top: 2px; }
+.rail a:hover, .rail a.on { color: var(--ink); background: var(--sunk); }
+
+main { min-width: 0; }
+header.hero { padding-block: 48px 28px; border-bottom: 1px solid var(--rule); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 5.5vw, 58px); line-height: 1.02; letter-spacing: -.025em; margin: 10px 0 16px; text-wrap: balance; }
+h1 .m { color: var(--mi); }
+.lede { max-width: 66ch; color: var(--muted); font-size: 18px; margin: 0 0 12px; }
+.levelcards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+@media (max-width: 760px) { .levelcards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.levelcards button { text-align: left; font-family: var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; cursor: pointer; }
+.levelcards button b { display: block; font-family: var(--display); font-size: 17px; }
+.levelcards button span { font-size: 14px; color: var(--muted); line-height: 1.35; display: block; margin-top: 2px; }
+.levelcards button.on { border-color: var(--mi); box-shadow: inset 0 0 0 1.5px var(--mi); background: var(--mi-soft); }
+.legend3 { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 22px; font-family: var(--mono); font-size: 12.5px; }
+.legend3 span { display: inline-flex; align-items: center; gap: 8px; }
+.legend3 i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+section.sec { padding-block: 56px 8px; border-bottom: 1px solid var(--rule); scroll-margin-top: 60px; }
+.sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.secnum { font-family: var(--mono); font-size: 13px; color: var(--mi); border: 1px solid currentColor; border-radius: 4px; padding: 1px 7px; }
+h2 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 3.4vw, 36px); line-height: 1.1; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.intro { max-width: 66ch; }
+.intro p { margin: 12px 0; }
+
+.block { margin-top: 28px; }
+.blabel { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.blabel::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+.blabel .tag { color: var(--surface); background: var(--ink); padding: 2px 7px; border-radius: 3px; letter-spacing: .06em; }
+.block.math .blabel .tag { background: var(--c1); }
+.block.quiz .blabel .tag { background: var(--green); }
+.block.play .blabel .tag { background: var(--mi); }
+.block.lv .blabel .tag { background: var(--gap); }
+
+/* level explanations */
+.lvcard { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 0; overflow: hidden; }
+.lvtabs { display: flex; border-bottom: 1px solid var(--rule); background: var(--sunk); overflow-x: auto; scrollbar-width: none; }
+.lvtabs button { font-family: var(--mono); font-size: 12px; padding: 9px 14px; border: 0; border-right: 1px solid var(--rule); background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.lvtabs button.on { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--mi); }
+.lvbody { padding: 6px 20px 14px; }
+.lvbody > div { max-width: 68ch; }
+.lvbody p, .lvbody li { margin: 10px 0; }
+.lvbody ul, .lvbody ol { padding-left: 22px; }
+.lvbody .big { font-size: 19px; }
+
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; }
+.panel + .panel { margin-top: 16px; }
+.panel h4 { font-family: var(--display); font-weight: 700; font-size: 18px; margin: 0 0 4px; }
+.hint { font-size: 14.5px; color: var(--muted); margin: 0 0 12px; }
+.two { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.two-even { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+@media (max-width: 760px) { .two, .two-even { grid-template-columns: minmax(0, 1fr); } }
+.cap { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 0 0 4px; }
+
+svg.plot { width: 100%; height: auto; display: block; overflow: visible; touch-action: none; user-select: none; -webkit-user-select: none; }
+svg.drag { cursor: crosshair; }
+svg:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--mi); outline-offset: 2px; }
+.ax { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+.axl { font-family: var(--mono); font-size: 11.5px; fill: var(--ink); }
+.lbl { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.gridl { stroke: var(--rule); stroke-width: 1; }
+.base { stroke: var(--muted); stroke-width: 1; }
+.handle { cursor: grab; }
+
+.readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 14px; }
+.stat { background: var(--sunk); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.stat .k { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.stat .v { font-family: var(--display); font-weight: 700; font-size: 23px; font-variant-numeric: tabular-nums; line-height: 1.15; overflow-wrap: anywhere; }
+.stat.r .v { color: var(--red); } .stat.b .v { color: var(--c1); } .stat.a .v { color: var(--gap); } .stat.g .v { color: var(--green); } .stat.m .v { color: var(--mi); }
+.chain { font-family: var(--mono); font-size: 13px; background: var(--sunk); border-radius: 8px; padding: 10px 14px; margin-top: 12px; line-height: 1.8; overflow-x: auto; }
+.chain .ok { color: var(--green); font-weight: 600; } .chain .bad { color: var(--red); font-weight: 600; } .chain .a { color: var(--gap); font-weight: 600; } .chain .mu { color: var(--muted); } .chain .m { color: var(--mi); font-weight: 600; }
+.verdict { font-family: var(--display); font-weight: 700; font-size: 20px; margin: 12px 0 0; }
+
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+button.b { font-family: var(--mono); font-size: 12.5px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); cursor: pointer; }
+button.b:hover:not(:disabled) { border-color: var(--ink); }
+button.b:disabled { opacity: .4; cursor: default; }
+button.b.pri { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btns .sep { width: 1px; align-self: stretch; background: var(--rule); margin: 0 4px; }
+.btns .lab { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+label.chk { font-family: var(--mono); font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; }
+.seg button { font-family: var(--mono); font-size: 12px; padding: 7px 11px; border: 0; border-right: 1px solid var(--rule); background: var(--surface); color: var(--ink); cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--mi); color: #fff; }
+
+.ctrl { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; align-items: center; gap: 10px; margin: 6px 0; font-family: var(--mono); font-size: 13px; }
+.ctrl label { color: var(--muted); }
+.ctrl output { text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { .ctrl { grid-template-columns: 110px minmax(0, 1fr) 54px; font-size: 12px; } }
+input[type=range] { width: 100%; accent-color: var(--mi); }
+
+/* probability bars */
+.postbars { display: grid; gap: 5px; font-family: var(--mono); font-size: 12px; }
+.postbars .r { display: grid; grid-template-columns: 74px minmax(0, 1fr) 54px; gap: 8px; align-items: center; }
+.postbars .bar { height: 16px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+.postbars .bar i { display: block; height: 100%; transition: width .2s; }
+.postbars .v { text-align: right; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .postbars .bar i { transition: none; } }
+
+table.t { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+table.t th, table.t td { padding: 5px 8px; border-bottom: 1px solid var(--rule); text-align: right; white-space: nowrap; }
+table.t th:first-child, table.t td:first-child { text-align: left; }
+table.t th { color: var(--muted); font-weight: 400; font-size: 11.5px; }
+table.t td.mu { color: var(--muted); }
+table.t.wrap td:first-child { white-space: normal; }
+table.t tr.tot td { border-top: 2px solid var(--rule); font-weight: 600; }
+.scroll { overflow-x: auto; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+
+/* math */
+.mathcard { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 6px 20px 16px; }
+.mathcard + .mathcard { margin-top: 16px; }
+.mathcard h4 { font-family: var(--display); font-weight: 700; font-size: 18px; margin: 16px 0 4px; }
+.mathcard p, .mathcard li { max-width: 68ch; }
+.eq { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; max-width: 100%; margin: 10px 0 !important; padding: 2px 0; }
+.tr { color: var(--red); } .tb { color: var(--c1); } .ta { color: var(--gap); } .tg { color: var(--green); } .tm { color: var(--mi); }
+.steps { counter-reset: st; list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 4px; }
+.steps > li { counter-increment: st; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 8px; padding: 6px 0; border-top: 1px dashed var(--rule); }
+.steps > li::before { content: counter(st); font-family: var(--mono); font-size: 12px; color: var(--surface); background: var(--c1); border-radius: 50%; width: 22px; height: 22px; display: grid; place-items: center; margin-top: 4px; }
+.steps .why { color: var(--muted); font-size: 15px; }
+.steps > li > div { min-width: 0; }
+.steps > li > div, .lvbody p, .lvbody li, .mathcard p { overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+.note { border-left: 3px solid var(--gap); padding: 6px 14px; margin: 14px 0; font-size: 15.5px; background: var(--sunk); border-radius: 0 6px 6px 0; }
+
+/* quiz */
+.quizbox { display: grid; gap: 14px; }
+.qq { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; }
+.qq .qt { font-weight: 600; margin: 0 0 10px; }
+.qq .qt .qn { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-right: 8px; font-weight: 400; }
+.qq .qt .ql { font-family: var(--mono); font-size: 11px; color: var(--gap); border: 1px solid currentColor; border-radius: 3px; padding: 0 5px; margin-left: 8px; font-weight: 400; white-space: nowrap; }
+.opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 600px) { .opts { grid-template-columns: minmax(0, 1fr); } }
+.opt { text-align: left; font-family: var(--body); font-size: 15.5px; line-height: 1.4; padding: 9px 12px; border-radius: 7px; border: 1px solid var(--rule); background: var(--bg); color: var(--ink); cursor: pointer; }
+.opt:hover:not(:disabled) { border-color: var(--ink); }
+.opt:disabled { cursor: default; }
+.opt.right { border-color: var(--green); background: var(--green-soft); }
+.opt.wrong { border-color: var(--red); background: var(--red-soft); }
+.why-ans { margin: 10px 0 0; font-size: 15px; padding: 8px 12px; border-radius: 6px; background: var(--sunk); }
+.why-ans b.ok { color: var(--green); } .why-ans b.no { color: var(--red); }
+.quizfoot { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 12.5px; color: var(--muted); gap: 10px; flex-wrap: wrap; }
+
+table.vs { border-collapse: collapse; width: 100%; font-size: 15px; }
+table.vs th, table.vs td { padding: 9px 10px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+table.vs thead th { font-family: var(--display); font-size: 16px; }
+table.vs tbody th { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--muted); white-space: nowrap; }
+
+footer { padding-block: 32px; color: var(--muted); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* additions for this lab */
+.halo { paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.intro p { overflow-x: auto; overflow-y: hidden; }
+.legend3 i.ln { width: 18px; height: 3px; border-radius: 2px; }
+.legend3 i.sq { border-radius: 2px; }
+.legend3 i.ring { background: none !important; border: 2px solid var(--c0); width: 11px; height: 11px; }
+.legend3 i.grey { background: var(--muted); opacity: .6; width: 7px; height: 7px; }
+.verdict.ok { color: var(--green); } .verdict.bad { color: var(--red); } .verdict.meh { color: var(--gap); }
+.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 760px) { .three { grid-template-columns: minmax(0, 1fr); } }
+.hov { font-family: var(--mono); font-size: 12.5px; color: var(--muted); min-height: 1.6em; margin: 6px 0 0; }
+.mini { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.keyrow { display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 4px 0 6px; }
+.keyrow span { display: inline-flex; align-items: center; gap: 6px; }
+.keyrow i { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
+.keyrow i.d { height: 0; border-top: 2px dashed currentColor; background: none !important; }
+.keyrow i.c { width: 9px; height: 9px; border-radius: 50%; }
+.keyrow i.h { width: 9px; height: 9px; border-radius: 50%; background: none !important; border: 1.6px solid currentColor; }
+.keyrow i.s { width: 9px; height: 9px; border-radius: 1px; }
+.algo { font-family: var(--mono); font-size: 13px; background: var(--sunk); border-radius: 8px; padding: 10px 14px; margin: 12px 0; line-height: 1.75; overflow-x: auto; }
+.algo .ln { color: var(--muted); display: inline-block; width: 1.6em; }
+.algo .on { background: var(--mi-soft); border-radius: 3px; }
+.algo div { padding: 0 4px; white-space: nowrap; }
+.ramp { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.ramp i { flex: 0 1 160px; height: 10px; border-radius: 3px; display: block; }
+.pts { cursor: pointer; }
+.bars3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 8px; }
+.tiny { font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; }
+.prog { height: 4px; background: var(--sunk); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+.prog i { display: block; height: 100%; width: 0; background: var(--mi); }
+.trihead { font-family: var(--mono); font-size: 12px; margin: 0 0 4px; display: flex; justify-content: space-between; gap: 6px; }
+/* additions for the PCA lab */
+canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; width: 100%; aspect-ratio: 1; display: block; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); }
+.imgrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 8px; }
+.imgrow figure { margin: 0; min-width: 0; }
+.imgrow figcaption { font-family: var(--mono); font-size: 10.5px; color: var(--muted); text-align: center; margin-top: 3px; line-height: 1.25; overflow-wrap: anywhere; }
+.grid5 figure { margin: 0; }
+.imgrow.six { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.grid5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; max-width: 320px; }
+.probe { display: grid; grid-template-columns: repeat(2, minmax(0, 96px)); gap: 12px; margin-top: 10px; }
+.probe figure { margin: 0; } .probe figcaption { font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; margin-top: 3px; }
+.shapes { display: flex; flex-wrap: wrap; gap: 18px 28px; align-items: flex-end; margin: 6px 0 4px; }
+.shapes .sh { font-family: var(--mono); font-size: 11.5px; color: var(--muted); text-align: center; }
+.shapes .sh i { display: block; border: 1.5px solid var(--ink); border-radius: 2px; margin: 0 auto 4px; min-width: 3px; min-height: 3px; }
+.dsrow { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 8px; }
+.dsrow .ctrl { flex: 1 1 280px; margin: 0; }
+.blocks { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 8px 0; }
+.blocks i { display: inline-grid; place-items: center; border: 1.5px solid var(--ink); border-radius: 2px; font-style: normal; color: var(--ink); background: var(--sunk); font-size: 11px; transition: width .15s, height .15s; }
+@media (prefers-reduced-motion: reduce) { .blocks i { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="topbar-in">
+  <div class="brand">Principal <span>Components</span> Lab</div>
+  <div class="chips">
+    <a href="#pca">20.1</a><a href="#ex">20.1.1</a><a href="#cc">20.1.3.1</a><a href="#hd">20.1.3.2</a><a href="#svd">20.1.3.3</a><a href="#re">20.1.4.1</a><a href="#scree">20.1.4.2</a><a href="#prof">20.1.4.3</a><a href="#cheat">Sheet</a>
+  </div>
+  <div class="tb-right">
+    <div class="lvpick" id="lvpick" role="group" aria-label="Explanation level">
+      <button data-setl="1">Kid</button><button data-setl="2">High school</button><button data-setl="3">Undergrad</button><button data-setl="4">Grad</button>
+    </div>
+    <div class="score" id="score">Quiz <b>0</b> / 0</div>
+  </div>
+</div></div>
+
+<div class="wrap">
+<aside class="rail"><nav id="rail">
+  <a href="#pca"><span class="n">20.1</span>PCA: project, then rebuild</a>
+  <a href="#ex"><span class="n">20.1.1</span>Examples: digits and eigen-images</a>
+  <a href="#cc"><span class="n">20.1.3.1</span>Covariance vs correlation</a>
+  <a href="#hd"><span class="n">20.1.3.2</span>High-dimensional data</a>
+  <a href="#svd"><span class="n">20.1.3.3</span>PCA by SVD</a>
+  <a href="#re"><span class="n">20.1.4.1</span>Reconstruction error</a>
+  <a href="#scree"><span class="n">20.1.4.2</span>Scree plots</a>
+  <a href="#prof"><span class="n">20.1.4.3</span>Profile likelihood</a>
+  <a href="#cheat"><span class="n">—</span>Cheat sheet</a>
+</nav></aside>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Murphy, <i>Probabilistic Machine Learning</i> · Chapter 20 · §20.1, 20.1.1, 20.1.3, 20.1.4</div>
+  <h1>Squash the data flat, <span class="m">rebuild it</span>, and keep the version that loses the least.</h1>
+  <p class="lede"><b>Principal components analysis</b> takes points in \(D\) dimensions and describes each one with only \(L\ll D\) numbers. The encoder is \(\mathbf z=\mathbf W^\top\mathbf x\), the decoder is \(\hat{\mathbf x}=\mathbf W\mathbf z\), and \(\mathbf W\) is chosen so that \(\hat{\mathbf x}\) lands as close to \(\mathbf x\) as possible. The best \(\mathbf W\) turns out to be the top \(L\) eigenvectors of the covariance matrix.</p>
+  <p class="lede">You will turn a projection line by hand until the error is smallest (20.1), compress 256-pixel images of the digit 9 down to two numbers and look at their <b>eigen-images</b> (20.1.1), see units mislead PCA (20.1.3.1), compute PCA from the small Gram matrix when \(D&gt;N\) (20.1.3.2), compute it again with an exact and a randomized SVD (20.1.3.3), and then pick \(L\) using reconstruction error, scree plots and the profile likelihood (20.1.4). Every decomposition on the page is computed live in your browser.</p>
+  <p class="lede">Every section has four parts: <b>Explain it</b> at your level, <b>Play</b>, <b>Math, slowly</b>, and <b>Check yourself</b>. Your quiz score sits in the top bar.</p>
+  <div class="levelcards" id="levelcards">
+    <button data-setl="1"><b>Kid</b><span>Elementary school. Stories, no symbols.</span></button>
+    <button data-setl="2"><b>High school</b><span>Pictures, averages, a bit of algebra.</span></button>
+    <button data-setl="3"><b>Undergrad</b><span>The book's equations and algorithms.</span></button>
+    <button data-setl="4"><b>Grad / MLE</b><span>Theory, failure modes, what practitioners do.</span></button>
+  </div>
+  <p class="hint" style="margin-top:10px">Pick a level here or in the top bar. Every "Explain it" box switches to match, and you can still flip tabs one box at a time.</p>
+  <div class="legend3">
+    <span><i style="background:var(--c1)"></i>data point x</span>
+    <span><i class="ring" style="border-color:var(--c0)"></i>reconstruction x̂ = Wz</span>
+    <span><i class="ln" style="background:var(--mi)"></i>principal direction w</span>
+    <span><i class="ln" style="background:var(--gap)"></i>error / residual</span>
+  </div>
+</header>
+
+<!-- ============ 20.1 ============ -->
+<section class="sec" id="pca">
+  <div class="sec-head"><span class="secnum">§20.1</span><h2>PCA: project down, decode back up, measure what got lost</h2></div>
+  <div class="intro">
+    <p>PCA looks for a linear, orthogonal map from \(\mathbf x\in\mathbb R^D\) to \(\mathbf z\in\mathbb R^L\). Encode with \(\mathbf z=\mathbf W^\top\mathbf x\), decode with \(\hat{\mathbf x}=\mathbf W\mathbf z\), and score \(\mathbf W\) by the average squared distance between \(\mathbf x\) and \(\hat{\mathbf x}\), the <b>reconstruction error</b> or <b>distortion</b> (Eq. 20.1).</p>
+    <p>The minimizer is \(\hat{\mathbf W}=\mathbf U_L\), the \(L\) eigenvectors of the empirical covariance \(\hat{\boldsymbol\Sigma}\) with the largest eigenvalues (Eq. 20.2). The Play box shows the case \(D=2\), \(L=1\) (Fig. 20.1): one line, and every point is replaced by its shadow on that line.</p>
+  </div>
+
+  <div class="block lv"><h3 class="blabel"><span class="tag">Explain it</span>At your level</h3>
+    <div class="lvcard" data-lv>
+      <div data-l="1">
+        <p class="big">Imagine a bunch of kids standing around a playground, and you have to describe where each kid is using just <b>one</b> number.</p>
+        <p>You could paint one straight line across the playground and say how far along the line each kid is. Every kid walks straight over to the line, and you write down where they land. Some kids have to walk a long way to reach it, and that walk is the information you lost.</p>
+        <p>Where should the line go? If the kids are spread out in a long stripe, paint the line along the stripe. Then nobody has to walk far. A line going the other way makes almost everyone walk a long way.</p>
+        <p>PCA is a rule for finding the line (or flat sheet) that makes the total walking as small as possible. Turn the line in the Play box and watch the orange walking paths get shorter and longer.</p>
+      </div>
+      <div data-l="2">
+        <p>Each blue dot is a data point with two numbers, like (height, arm span). We want to describe it with <b>one</b> number. Pick a direction (a line through the average point). Drop each dot straight onto the line at a right angle. Its position along the line is its new single number \(z\).</p>
+        <p>To go back, put a dot at position \(z\) on the line. That's the <b>reconstruction</b> (red ring). The orange segment between the real dot and its ring is the error. Square each error, average them, and you get the score \(\mathcal L\).</p>
+        <p>Turn the line with the slider and the error curve on the right moves. Its lowest point is the <b>first principal component</b>. It's also where the red rings are most spread out along the line. Lose less, keep more spread: those are the same goal, because by Pythagoras (spread along the line)² + (error)² is the same total for every direction.</p>
+      </div>
+      <div data-l="3">
+        <p>Center the data so \(\bar{\mathbf x}=\mathbf 0\). For a unit vector \(\mathbf w\), encode \(z_n=\mathbf w^\top\mathbf x_n\) and decode \(\hat{\mathbf x}_n=z_n\mathbf w\). The distortion is
+        \[\mathcal L(\mathbf w)=\frac1N\sum_n\|\mathbf x_n-z_n\mathbf w\|^2=\frac1N\sum_n\|\mathbf x_n\|^2-\mathbf w^\top\hat{\boldsymbol\Sigma}\mathbf w.\]
+        The first term doesn't depend on \(\mathbf w\), so minimizing distortion means maximizing \(\mathbf w^\top\hat{\boldsymbol\Sigma}\mathbf w\), which is the variance of the projections.</p>
+        <p>With the constraint \(\|\mathbf w\|=1\), the Lagrangian gives \(\hat{\boldsymbol\Sigma}\mathbf w=\lambda\mathbf w\), so \(\mathbf w\) is an eigenvector, and \(\mathbf w^\top\hat{\boldsymbol\Sigma}\mathbf w=\lambda\). Take the largest. For \(L&gt;1\), each new direction is orthogonal to the earlier ones and is the next eigenvector, so \(\hat{\mathbf W}=\mathbf U_L\).</p>
+        <p>In the Play box, the right panel plots \(\mathcal L(\theta)\) and \(\mathbb V[z](\theta)\) for \(\mathbf w=(\cos\theta,\sin\theta)\). They always add to \(\operatorname{tr}\hat{\boldsymbol\Sigma}=\lambda_1+\lambda_2\). The minimum of \(\mathcal L\) is at the angle of \(\mathbf u_1\), and its value is \(\lambda_2\).</p>
+      </div>
+      <div data-l="4">
+        <p>PCA is the best rank-\(L\) linear autoencoder with tied, orthonormal weights. By Eckart–Young–Mirsky, \(\mathbf U_L\mathbf U_L^\top\mathbf X_c\) is the best rank-\(L\) approximation of the centered data in both Frobenius and spectral norm, so the orthonormality constraint costs nothing. An unconstrained linear autoencoder \(\hat{\mathbf x}=\mathbf D\mathbf E\mathbf x\) trained on squared error reaches the same subspace but not necessarily the same basis (any \(\mathbf W\mathbf R\) with invertible \(\mathbf R\) spans it).</p>
+        <p>The solution is unique only up to sign, and only up to rotation within an eigenspace when eigenvalues tie. Set the elongation slider to 1 in the Play box: \(\lambda_1\approx\lambda_2\), the error curve goes nearly flat, and the "first PC" jumps around between resamples. In high dimensions this instability shows up when the eigengap \(\lambda_L-\lambda_{L+1}\) is small (Davis–Kahan bounds the subspace angle by the perturbation norm divided by the gap).</p>
+        <p>Two interpretations sit behind the same eigenproblem: minimum distortion (Eq. 20.1) and maximum projected variance (Eq. 20.16). The book prefers the first because it generalizes, to kernel PCA, to autoencoders and to the probabilistic PCA likelihood of §20.2, where the MLE of \(\mathbf W\) spans the same \(\mathbf U_L\).</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Fig. 20.1: turn the line and watch the error</h3>
+    <div class="panel">
+      <p class="hint">40 points in 2-D. The purple line passes through the mean (black dot) in direction \(\mathbf w=(\cos\theta,\sin\theta)\). Each point is encoded as \(z=\mathbf w^\top(\mathbf x-\bar{\mathbf x})\) and decoded to the red ring. Drag on the plot or use the slider to turn the line. <b>Power-iteration step</b> applies \(\mathbf w\leftarrow\hat{\boldsymbol\Sigma}\mathbf w/\|\hat{\boldsymbol\Sigma}\mathbf w\|\).</p>
+      <div class="ctrl"><label for="pc-th">angle θ</label><input type="range" id="pc-th" min="0" max="179.5" step="0.5" value="110"><output id="pc-th-o"></output></div>
+      <div class="ctrl"><label for="pc-el">elongation σ₂/σ₁</label><input type="range" id="pc-el" min="0.1" max="1" step="0.05" value="0.35"><output id="pc-el-o"></output></div>
+      <div class="btns">
+        <button class="b pri" id="pc-u1">Snap to u₁ (largest λ)</button>
+        <button class="b" id="pc-u2">Snap to u₂</button>
+        <button class="b" id="pc-pow">Power-iteration step</button>
+        <span class="sep"></span>
+        <button class="b" id="pc-new">New data</button>
+        <label class="chk"><input type="checkbox" id="pc-res" checked> show residuals</label>
+      </div>
+      <div class="two" style="margin-top:12px">
+        <div><p class="cap">data x, mean, line along w, reconstructions x̂</p><svg class="plot drag" id="pc-plot" viewBox="0 0 440 420" tabindex="0" aria-label="Scatter plot; drag to rotate the projection line"></svg></div>
+        <div><p class="cap">distortion 𝓛(θ) and projected variance 𝕍[z](θ)</p><svg class="plot" id="pc-curve" viewBox="0 0 420 280"></svg>
+          <div class="keyrow"><span><i style="background:var(--gap)"></i>𝓛(θ) reconstruction error</span><span><i style="background:var(--mi)"></i>𝕍[z] variance kept</span><span><i class="d" style="color:var(--muted)"></i>angle of u₁</span></div>
+          <p class="cap" style="margin-top:10px">1-D codes z₁ … z₄₀ (Fig. 20.4, bottom)</p><svg class="plot" id="pc-strip" viewBox="0 0 420 60"></svg>
+        </div>
+      </div>
+      <div class="readout" id="pc-stats"></div>
+    </div>
+  </div>
+
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>From the objective to an eigenvector</h3>
+    <div class="mathcard">
+      <h4>The objective (Eqs. 20.1–20.2)</h4>
+      <ol class="steps">
+        <li><div>Distortion: \(\displaystyle \mathcal L(\mathbf W)\triangleq\frac1N\sum_{n=1}^N\big\|\mathbf x_n-\operatorname{decode}(\operatorname{encode}(\mathbf x_n;\mathbf W);\mathbf W)\big\|_2^2\), with \(\operatorname{encode}(\mathbf x)=\mathbf W^\top\mathbf x\) and \(\operatorname{decode}(\mathbf z)=\mathbf W\mathbf z\). <span class="why">Both maps are linear, and \(\mathbf W\) is \(D\times L\) with orthonormal columns.</span></div></li>
+        <li><div>Empirical covariance: \(\displaystyle \hat{\boldsymbol\Sigma}=\frac1N\sum_n(\mathbf x_n-\bar{\mathbf x})(\mathbf x_n-\bar{\mathbf x})^\top=\frac1N\mathbf X_c^\top\mathbf X_c\), where \(\mathbf X_c\) is the centered \(N\times D\) design matrix.</div></li>
+        <li><div>Claim: \(\hat{\mathbf W}=\mathbf U_L\), the eigenvectors of \(\hat{\boldsymbol\Sigma}\) with the \(L\) largest eigenvalues.</div></li>
+      </ol>
+      <h4>Why (the 1-D case, condensed from §20.1.2)</h4>
+      <ol class="steps">
+        <li><div>Error for one point: \(\|\mathbf x_n-z_{n}\mathbf w\|^2=\mathbf x_n^\top\mathbf x_n-2z_{n}\mathbf w^\top\mathbf x_n+z_{n}^2\), using \(\mathbf w^\top\mathbf w=1\).</div></li>
+        <li><div>Best code: \(\partial/\partial z_n=0\Rightarrow z_n=\mathbf w^\top\mathbf x_n\). <span class="why">Orthogonal projection. In the plot, each orange residual meets the line at a right angle.</span></div></li>
+        <li><div>Plug back in: \(\mathcal L(\mathbf w)=\text{const}-\frac1N\sum_nz_n^2=\text{const}-\mathbf w^\top\hat{\boldsymbol\Sigma}\mathbf w\). <span class="why">The const is \(\operatorname{tr}\hat{\boldsymbol\Sigma}\), which is the "𝓛 + 𝕍" stat in the Play box.</span></div></li>
+        <li><div>Maximize \(\mathbf w^\top\hat{\boldsymbol\Sigma}\mathbf w-\lambda(\mathbf w^\top\mathbf w-1)\): \(\;2\hat{\boldsymbol\Sigma}\mathbf w-2\lambda\mathbf w=0\Rightarrow\hat{\boldsymbol\Sigma}\mathbf w=\lambda\mathbf w\).</div></li>
+        <li><div>Then \(\mathbf w^\top\hat{\boldsymbol\Sigma}\mathbf w=\lambda\), so choose the largest eigenvalue. The leftover error is \(\mathcal L(\mathbf u_1)=\lambda_2\) in 2-D, and \(\sum_{j&gt;L}\lambda_j\) in general (Eq. 20.26).</div></li>
+      </ol>
+      <div class="note">Power iteration multiplies by \(\hat{\boldsymbol\Sigma}\) and renormalizes. Each step shrinks the \(\mathbf u_2\) component relative to \(\mathbf u_1\) by a factor \(\lambda_2/\lambda_1\), so it converges in a few clicks for elongated data and slowly when the elongation is near 1.</div>
+    </div>
+  </div>
+
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>PCA objective</h3><div class="quizbox" data-quiz="pca"></div></div>
+</section>
+
+<!-- ============ 20.1.1 ============ -->
+<section class="sec" id="ex">
+  <div class="sec-head"><span class="secnum">§20.1.1</span><h2>Examples: 256 pixels, two numbers, and eigen-images</h2></div>
+  <div class="intro">
+    <p>Fig. 20.2 projects MNIST images of the digit 9 to 2-D. The images have \(28\times28=784\) pixels, but neighboring pixels are strongly correlated and most 9s look alike, so the number of <b>effective degrees of freedom</b> is far smaller. Fig. 20.3 does the same for 64×64 faces. The columns of \(\mathbf W\) can be shown as images, and for faces they are called <b>eigenfaces</b>.</p>
+    <p>MNIST and Olivetti are too big to ship in one page, so this lab generates its own 16×16 handwritten-style 9s (\(D=256\)). Each one is drawn with a random slant, stroke thickness, loop size, tail curl and shift, plus pixel noise. PCA is fit on 300 training images.</p>
+  </div>
+
+  <div class="block lv"><h3 class="blabel"><span class="tag">Explain it</span>At your level</h3>
+    <div class="lvcard" data-lv>
+      <div data-l="1">
+        <p class="big">A picture of a number 9 is made of 256 little squares, each light or dark. That's a lot of numbers!</p>
+        <p>But all the 9s look kind of alike. Some lean to the left, some lean to the right. Some are drawn with a fat marker, some with a thin pencil. If you know "how much it leans" and "how fat the marker was", you can almost draw the whole picture again.</p>
+        <p>PCA finds those few "knobs" by itself, just by looking at lots of 9s. Nobody tells it about leaning or marker size. In the Play box, the 9s on the left side lean one way and on the right side lean the other way, and going up or down they get thinner or fatter.</p>
+      </div>
+      <div data-l="2">
+        <p>A 16×16 image is a point in a 256-dimensional space: one coordinate per pixel. That sounds hopeless to picture, but real images only fill a tiny corner of that space. Random pixels look like TV static. 9s are much more organized.</p>
+        <p>PCA finds the directions in pixel space along which the 9s differ the most. Each direction is itself a 256-pixel pattern, so we can draw it as an image (blue pixels get added, red pixels get subtracted). Any 9 is then roughly <b>the average 9 + a bit of pattern 1 + a bit of pattern 2 + …</b></p>
+        <p>The scatter plot gives each image just two numbers, how much of pattern 1 and pattern 2 it contains. Click around the scatter to see the image those two numbers build. Then use the sliders under the eigen-images to add or subtract each pattern from the average.</p>
+      </div>
+      <div data-l="3">
+        <p>Stack the 300 centered training images as rows of \(\mathbf X_c\in\mathbb R^{300\times256}\), take the top eigenvectors of \(\hat{\boldsymbol\Sigma}=\frac1N\mathbf X_c^\top\mathbf X_c\), and plot \(\mathbf z_n=\mathbf W^\top(\mathbf x_n-\bar{\mathbf x})\in\mathbb R^2\). As in Fig. 20.2, the grid lines sit at the 5, 25, 50, 75 and 95% quantiles of each coordinate, and the circled points are the images nearest each grid vertex.</p>
+        <p>The latent axes have no names, so we interpret them by looking at the examples along each one. Here the horizontal axis mostly tracks slant and left-right position, and the vertical axis tracks stroke thickness (the second eigen-image is almost entirely one sign: "more ink everywhere on the stroke"). That matches what the book reports for real MNIST 9s.</p>
+        <p>Use \(\mathbf z=\mathbf W^\top\mathbf x\) as input to a nearest-neighbor classifier and you get the eigenfaces recognizer of [Tur13]. It is faster than working with raw pixels, and more reliable [MWP98], because the discarded directions are mostly noise.</p>
+      </div>
+      <div data-l="4">
+        <p>Eigen-images are global, dense and signed. Each basis image touches every pixel and cancels the others, which makes them hard to read beyond the first few. Methods like NMF (nonnegative parts), sparse PCA and ICA trade some reconstruction error for more interpretable bases.</p>
+        <p>The quantile grid in Fig. 20.2 is a cheap way to look at a latent space. It avoids the tails, where projected points are rare and nearest-neighbor exemplars would be misleading. With real MNIST you'll also see that PC1 mixes slant with stroke curvature, because PCA directions are eigenvectors, not causes. Independent generative factors map to orthogonal PCs only if they contribute uncorrelated, linearly separable pixel changes with distinct variances.</p>
+        <p>Eigenfaces work for recognition partly because the top PCs of face images are dominated by lighting (the book's PC1). Fisherfaces (LDA after PCA) were introduced to discount exactly that within-class variation. With a modern CNN embedding, PCA is still used for whitening and compressing the features before retrieval.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Fig. 20.2: the 9s in two dimensions</h3>
+    <div class="panel">
+      <p class="hint">Each dot is one of the 300 training 9s, projected onto the first two principal components. The grid lines are at the 5/25/50/75/95% quantiles, and the ringed dots are the images nearest each grid vertex. They are shown on the right in the same layout. <b>Click anywhere in the scatter</b> to decode that \((z_1,z_2)\) back into an image.</p>
+      <div class="two">
+        <div><p class="cap">z₁ (first PC) vs z₂ (second PC)</p><svg class="plot drag" id="ex-plot" viewBox="0 0 440 400" aria-label="Scatter of the 9s in PC space; click to decode"></svg></div>
+        <div><p class="cap">nearest training image to each grid vertex (top row = largest z₂)</p><div class="grid5" id="ex-grid"></div>
+          <div class="probe"><figure><canvas class="px" id="ex-rec" width="16" height="16"></canvas><figcaption>decoded x̄ + Wz</figcaption></figure><figure><canvas class="px" id="ex-near" width="16" height="16"></canvas><figcaption>nearest real 9</figcaption></figure></div>
+          <p class="hov" id="ex-hov">Click the scatter.</p>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h4>Fig. 20.3b, with 9s instead of faces: the mean and the principal basis</h4>
+      <p class="hint">Blue pixels are positive and red negative. Below them, slide the coordinates (in standard deviations \(\sqrt{\lambda_k}\)) to build \(\bar{\mathbf x}+\sum_kz_k\sqrt{\lambda_k}\,\mathbf w_k\).</p>
+      <div class="imgrow" id="ex-basis"></div>
+      <div class="two" style="margin-top:14px">
+        <div>
+          <div class="ctrl"><label for="ex-z1">z₁ / √λ₁</label><input type="range" id="ex-z1" min="-2.5" max="2.5" step="0.1" value="0"><output id="ex-z1-o"></output></div>
+          <div class="ctrl"><label for="ex-z2">z₂ / √λ₂</label><input type="range" id="ex-z2" min="-2.5" max="2.5" step="0.1" value="0"><output id="ex-z2-o"></output></div>
+          <div class="ctrl"><label for="ex-z3">z₃ / √λ₃</label><input type="range" id="ex-z3" min="-2.5" max="2.5" step="0.1" value="0"><output id="ex-z3-o"></output></div>
+          <div class="btns"><button class="b" id="ex-zero">Back to the mean</button></div>
+        </div>
+        <div style="max-width:150px"><canvas class="px" id="ex-built" width="16" height="16"></canvas><p class="tiny">x̄ + Σ zₖ wₖ</p></div>
+      </div>
+      <h4 style="margin-top:18px">Fig. 20.3a, then each image rebuilt from L numbers</h4>
+      <div class="ctrl"><label for="ex-L">components L</label><input type="range" id="ex-L" min="1" max="60" step="1" value="3"><output id="ex-L-o"></output></div>
+      <p class="cap">top: originals (256 numbers each) · bottom: reconstructions from L numbers each</p>
+      <div class="imgrow" id="ex-orig"></div>
+      <div class="imgrow" id="ex-reco" style="margin-top:6px"></div>
+      <div class="readout" id="ex-stats"></div>
+    </div>
+  </div>
+
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Images as vectors</h3>
+    <div class="mathcard">
+      <ol class="steps">
+        <li><div>Flatten each \(16\times16\) image into \(\mathbf x_n\in\mathbb R^{256}\) (row by row). <span class="why">Pixel order doesn't matter to PCA, as long as it's the same for every image.</span></div></li>
+        <li><div>Center: \(\bar{\mathbf x}=\frac1N\sum_n\mathbf x_n\) is itself an image, "the average 9" (first tile in the basis row).</div></li>
+        <li><div>Eigendecompose the \(256\times256\) matrix \(\hat{\boldsymbol\Sigma}\). Each eigenvector \(\mathbf w_k\in\mathbb R^{256}\) reshapes into a \(16\times16\) "eigen-image". It is a unit vector, so its pixels have both signs.</div></li>
+        <li><div>Encode: \(z_{nk}=\mathbf w_k^\top(\mathbf x_n-\bar{\mathbf x})\), how much of pattern \(k\) image \(n\) contains.</div></li>
+        <li><div>Decode with \(L\) components: \(\hat{\mathbf x}_n=\bar{\mathbf x}+\sum_{k=1}^Lz_{nk}\mathbf w_k\). <span class="why">Storage per image falls from 256 numbers to \(L\), plus the shared \(\bar{\mathbf x}\) and \(\mathbf W\).</span></div></li>
+        <li><div>Variance of coordinate \(k\) across the data is \(\lambda_k\), so \(z_k/\sqrt{\lambda_k}\) is in standard-deviation units. That's what the sliders use, and why ±2.5 stays within realistic 9s.</div></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Examples</h3><div class="quizbox" data-quiz="ex"></div></div>
+</section>
+
+<!-- ============ 20.1.3.1 ============ -->
+<section class="sec" id="cc">
+  <div class="sec-head"><span class="secnum">§20.1.3.1</span><h2>Covariance vs correlation: don't let the units choose the axes</h2></div>
+  <div class="intro">
+    <p>PCA on the covariance matrix finds directions of large variance, but variance depends on units. Measure weight in ounces instead of kilograms and its variance grows by \(35^2\approx1200\). PCA will then call weight the "main direction", even though nothing about the people changed. Fig. 20.5 shows this on height/weight data.</p>
+    <p>The fix is to <b>standardize</b> each feature to mean 0 and variance 1 first. That is the same as running PCA on the <b>correlation matrix</b>, which doesn't change when you rescale a feature.</p>
+  </div>
+
+  <div class="block lv"><h3 class="blabel"><span class="tag">Explain it</span>At your level</h3>
+    <div class="lvcard" data-lv>
+      <div data-l="1">
+        <p class="big">Say you measure your friends' heights in meters and their weights in grams.</p>
+        <p>Heights are numbers like 1.6 and 1.8, which are close together. Weights are numbers like 60,000 and 80,000, which are super far apart. If you only look at the numbers, weight seems way more "spread out", so PCA thinks weight is the only thing that matters.</p>
+        <p>But that's just because grams are tiny! Measure weight in kilograms and suddenly it's 60 and 80. To be fair, we first squish every measurement so it has the same amount of spread. Then the units can't trick us.</p>
+      </div>
+      <div data-l="2">
+        <p>The variance of a feature is in squared units. Change pounds to ounces (×16) and the variance goes up 256×. PCA chases variance, so its first direction swings toward whichever feature has the biggest numbers.</p>
+        <p><b>Standardizing</b> means: for each feature, subtract its mean and divide by its standard deviation. Now every feature has spread 1 and no units at all, so changing units does nothing.</p>
+        <p>In the Play box, switch the units on the left plot and watch PC1 swing between "almost pure height" and "almost pure weight". The standardized plot on the right doesn't move. For two features, its PC1 is always the 45° diagonal, (1, 1)/√2, or the other diagonal when the correlation is negative.</p>
+      </div>
+      <div data-l="3">
+        <p>Let \(\mathbf S=\operatorname{diag}(s_1,\dots,s_D)\) hold the feature standard deviations. Standardized data is \(\tilde{\mathbf X}=\mathbf X_c\mathbf S^{-1}\), and its covariance is the correlation matrix \(\mathbf R=\mathbf S^{-1}\hat{\boldsymbol\Sigma}\mathbf S^{-1}\).</p>
+        <p>A change of units is \(\mathbf X\to\mathbf X\mathbf A\) with \(\mathbf A\) diagonal. Then \(\hat{\boldsymbol\Sigma}\to\mathbf A\hat{\boldsymbol\Sigma}\mathbf A\), and its eigenvectors change. But \(\mathbf S\to\mathbf A\mathbf S\), so \(\mathbf R\) doesn't change. PCA on \(\mathbf R\) is unit-invariant.</p>
+        <p>With \(D=2\), \(\mathbf R=\begin{bmatrix}1&amp;\rho\\\rho&amp;1\end{bmatrix}\), whose eigenvectors are always \((1,\pm1)/\sqrt2\) with eigenvalues \(1\pm\rho\). Only the share of variance (\((1+|\rho|)/2\)) depends on the data.</p>
+      </div>
+      <div data-l="4">
+        <p>Standardizing isn't always right. If features share units and their scale carries meaning (pixel intensities, spectra, gene expression on one assay), standardizing inflates near-constant noisy features to unit variance and can bury the signal. That's why image PCA is usually run on the covariance.</p>
+        <p>Standardizing makes PCA invariant to diagonal rescaling only. It is not invariant to general linear maps: rotate or mix the features and the answer changes. Full whitening (\(\hat{\boldsymbol\Sigma}^{-1/2}\)) gives an isotropic covariance and destroys all PCA structure. Other choices sit between the two: Pareto scaling (divide by \(\sqrt{s_j}\)), robust scaling with the MAD, or weighting features by domain priors.</p>
+        <p>The scale problem also affects every \(\ell_2\)-based method (k-means, kNN, RBF kernels). Here it comes up as "which directions get kept". In probabilistic terms, PPCA assumes isotropic noise \(\sigma^2\mathbf I\), which only makes sense when features are on comparable scales. Factor analysis (§20.2) gives each feature its own noise variance and is invariant to rescaling.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Fig. 20.5: raw vs standardized</h3>
+    <div class="panel">
+      <p class="hint">Synthetic heights and weights for 140 adults (red = female, blue = male). The thick purple line is PC1 and the thin one is PC2, both through the mean. On the left they come from the covariance in the units you pick. On the right they come from the standardized data, which is the same as using the correlation matrix.</p>
+      <div class="btns" style="margin-top:0">
+        <span class="lab">height in</span><div class="seg" id="cc-hu"><button data-v="m">m</button><button data-v="in" class="on">in</button><button data-v="cm">cm</button></div>
+        <span class="sep"></span>
+        <span class="lab">weight in</span><div class="seg" id="cc-wu"><button data-v="kg">kg</button><button data-v="lb" class="on">lb</button><button data-v="oz">oz</button></div>
+        <span class="sep"></span>
+        <label class="chk"><input type="checkbox" id="cc-eq"> equal axis scales on the left</label>
+      </div>
+      <div class="two-even" style="margin-top:12px">
+        <div><p class="cap" id="cc-cap1">raw data, PCA on covariance</p><svg class="plot" id="cc-raw" viewBox="0 0 400 360"></svg></div>
+        <div><p class="cap">standardized data, PCA on correlation</p><svg class="plot" id="cc-std" viewBox="0 0 400 360"></svg></div>
+      </div>
+      <div class="readout" id="cc-stats"></div>
+      <p class="verdict" id="cc-verdict"></p>
+    </div>
+  </div>
+
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Why the correlation matrix ignores units</h3>
+    <div class="mathcard">
+      <ol class="steps">
+        <li><div>Change units by scaling feature \(j\) by \(a_j\) (inches → cm: \(a=2.54\)). In matrix form \(\mathbf X\to\mathbf X\mathbf A\), \(\mathbf A=\operatorname{diag}(a_j)\).</div></li>
+        <li><div>Covariance becomes \(\mathbf A\hat{\boldsymbol\Sigma}\mathbf A\). Entry \((i,j)\) is multiplied by \(a_ia_j\), so a large \(a_j\) inflates feature \(j\)'s diagonal entry by \(a_j^2\). <span class="why">That's the swing you see on the left.</span></div></li>
+        <li><div>Standard deviations become \(a_js_j\). The correlation \(R_{ij}=\hat\Sigma_{ij}/(s_is_j)\) becomes \(a_ia_j\hat\Sigma_{ij}/(a_is_ia_js_j)=R_{ij}\). Unchanged.</div></li>
+        <li><div>Standardizing each column, \(\tilde x_{nj}=(x_{nj}-\bar x_j)/s_j\), gives data whose covariance is exactly \(\mathbf R\). So "standardize, then PCA" = "PCA on \(\mathbf R\)".</div></li>
+        <li><div>To read the result in original units, map a direction back through \(\mathbf S\). \(\mathbf u\) in standardized space corresponds to \(\mathbf S\mathbf u\) (unnormalized) in raw space.</div></li>
+      </ol>
+      <div class="note">Tick "equal axis scales": with a big unit mismatch, the raw cloud becomes a thin stripe along one axis, and that stripe is PC1. Without equal scales, the raw PC1 and PC2 may not <i>look</i> perpendicular, because the axes are stretched differently.</div>
+    </div>
+  </div>
+
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Covariance vs correlation</h3><div class="quizbox" data-quiz="cc"></div></div>
+</section>
+
+<!-- ============ 20.1.3.2 ============ -->
+<section class="sec" id="hd">
+  <div class="sec-head"><span class="secnum">§20.1.3.2</span><h2>High-dimensional data: when D > N, eigendecompose the small matrix</h2></div>
+  <div class="intro">
+    <p>The covariance \(\mathbf X^\top\mathbf X\) is \(D\times D\), and eigendecomposing it costs \(O(D^3)\). With 300 face images of 4096 pixels each, that's a 4096×4096 problem. The <b>Gram matrix</b> \(\mathbf X\mathbf X^\top\) is only \(N\times N\) (300×300) and has the same nonzero eigenvalues. Its eigenvectors map to those of \(\mathbf X^\top\mathbf X\) with one multiplication and a rescale (Eqs. 20.21–20.22). This is also the step that makes kernel PCA possible (§20.4.6).</p>
+  </div>
+
+  <div class="block lv"><h3 class="blabel"><span class="tag">Explain it</span>At your level</h3>
+    <div class="lvcard" data-lv>
+      <div data-l="1">
+        <p class="big">Imagine comparing 10 kids, and for each kid you have 1,000 facts.</p>
+        <p>One way is to compare every <b>fact</b> with every other fact: a million comparisons. Another way is to compare every <b>kid</b> with every other kid: only 100 comparisons. When there are way more facts than kids, comparing kids is much faster, and it turns out you can get the same answer from it.</p>
+      </div>
+      <div data-l="2">
+        <p>\(\mathbf X\) is a table with \(N\) rows (examples) and \(D\) columns (features). There are two "square" tables you can build from it. \(\mathbf X^\top\mathbf X\) (\(D\times D\)) compares features with features. \(\mathbf X\mathbf X^\top\) (\(N\times N\)) compares examples with examples: entry \((i,j)\) is the dot product of example \(i\) with example \(j\).</p>
+        <p>The cost of finding eigenvectors grows like the size cubed. When \(D\) is much bigger than \(N\), the small table is far cheaper. And they have the same important eigenvalues, so you lose nothing. In the Play box, push \(D\) up and compare the two timings.</p>
+      </div>
+      <div data-l="3">
+        <p>Let \(\mathbf X\mathbf X^\top\mathbf U=\mathbf U\boldsymbol\Lambda\). Multiply on the left by \(\mathbf X^\top\): \((\mathbf X^\top\mathbf X)(\mathbf X^\top\mathbf U)=(\mathbf X^\top\mathbf U)\boldsymbol\Lambda\). So the columns of \(\mathbf V=\mathbf X^\top\mathbf U\) are eigenvectors of \(\mathbf X^\top\mathbf X\) with the same eigenvalues (Eq. 20.21).</p>
+        <p>They have the wrong length: \(\|\mathbf v_j\|^2=\mathbf u_j^\top\mathbf X\mathbf X^\top\mathbf u_j=\lambda_j\). Normalize: \(\mathbf V=\mathbf X^\top\mathbf U\boldsymbol\Lambda^{-1/2}\) (Eq. 20.22). The cost drops from \(O(D^3)\) to \(O(N^2D+N^3)\).</p>
+        <p>A centered \(\mathbf X\) has rank at most \(\min(N-1,D)\), so at most \(N-1\) eigenvalues are nonzero. You can't normalize the zero ones, and you don't need to, because they carry no variance.</p>
+      </div>
+      <div data-l="4">
+        <p>This is the SVD seen from both sides. If \(\mathbf X=\mathbf U\mathbf S\mathbf V^\top\), then \(\mathbf X\mathbf X^\top=\mathbf U\mathbf S^2\mathbf U^\top\) and \(\mathbf X^\top\mathbf X=\mathbf V\mathbf S^2\mathbf V^\top\), with \(\mathbf V=\mathbf X^\top\mathbf U\mathbf S^{-1}\). The Gram route only touches \(\mathbf X\) through inner products \(\mathbf x_i^\top\mathbf x_j\). Swap those for \(\mathcal K(\mathbf x_i,\mathbf x_j)\) and center in feature space, and you have kernel PCA.</p>
+        <p>Numerically, forming either product squares the condition number, so small singular values lose about half their significant digits. For accuracy, prefer a thin SVD of \(\mathbf X\) itself (\(O(ND\min(N,D))\)). With tiny \(\lambda_j\), \(\boldsymbol\Lambda^{-1/2}\) amplifies rounding error, which you can watch in the "max |cos| error" stat if you set \(N\) close to \(D\) with low rank.</p>
+        <p>When \(N\) and \(D\) are both huge, neither square matrix fits in memory. Then use iterative Lanczos/ARPACK, randomized SVD (next section) or streaming methods (Oja's rule, incremental PCA).</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Same eigenvectors, two routes</h3>
+    <div class="panel">
+      <p class="hint">Random centered data with a few strong directions plus noise. <b>Route A</b> eigendecomposes \(\mathbf X^\top\mathbf X\) (\(D\times D\)). <b>Route B</b> eigendecomposes \(\mathbf X\mathbf X^\top\) (\(N\times N\)) and then forms \(\mathbf V=\mathbf X^\top\mathbf U\boldsymbol\Lambda^{-1/2}\). Both run with the same eigensolver in your browser, timed with <code>performance.now()</code>.</p>
+      <div class="ctrl"><label for="hd-n">examples N</label><input type="range" id="hd-n" min="5" max="150" step="5" value="40"><output id="hd-n-o"></output></div>
+      <div class="ctrl"><label for="hd-d">features D</label><input type="range" id="hd-d" min="10" max="600" step="10" value="400"><output id="hd-d-o"></output></div>
+      <div class="btns"><button class="b pri" id="hd-run">Run both routes</button><label class="chk"><input type="checkbox" id="hd-skip"> skip the normalization Λ^(−½)</label></div>
+      <div class="shapes" id="hd-shapes"></div>
+      <div class="readout" id="hd-stats"></div>
+      <div class="scroll" style="margin-top:12px"><table class="t" id="hd-tab"></table></div>
+    </div>
+  </div>
+
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Eqs. 20.21–20.22</h3>
+    <div class="mathcard">
+      <ol class="steps">
+        <li><div>Gram eigenproblem: \((\mathbf X\mathbf X^\top)\mathbf U=\mathbf U\boldsymbol\Lambda\), with \(\mathbf U^\top\mathbf U=\mathbf I\). <span class="why">\(N\times N\): cheap when \(N\ll D\).</span></div></li>
+        <li><div>Left-multiply by \(\mathbf X^\top\): \(\mathbf X^\top\mathbf X\mathbf X^\top\mathbf U=\mathbf X^\top\mathbf U\boldsymbol\Lambda\), i.e. \((\mathbf X^\top\mathbf X)\mathbf V=\mathbf V\boldsymbol\Lambda\) with \(\mathbf V=\mathbf X^\top\mathbf U\). (20.21)</div></li>
+        <li><div>Length: \(\|\mathbf v_j\|^2=\mathbf u_j^\top\mathbf X\mathbf X^\top\mathbf u_j=\mathbf u_j^\top(\lambda_j\mathbf u_j)=\lambda_j\).</div></li>
+        <li><div>Normalize: \(\mathbf V=\mathbf X^\top\mathbf U\boldsymbol\Lambda^{-1/2}\). (20.22) <span class="why">Only for \(\lambda_j&gt;0\). After centering there are at most \(N-1\) of them.</span></div></li>
+        <li><div>Cost: forming \(\mathbf X\mathbf X^\top\) is \(O(N^2D)\), its eigendecomposition is \(O(N^3)\), and \(\mathbf X^\top\mathbf U\) is \(O(ND\,N)\). Compare \(O(ND^2+D^3)\) for route A.</div></li>
+      </ol>
+      <div class="note">The eigenvalues here are of \(\mathbf X^\top\mathbf X\), not \(\hat{\boldsymbol\Sigma}\). Divide by \(N\) to get the PCA variances. Eigenvectors don't care about the factor.</div>
+    </div>
+  </div>
+
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>High-dimensional data</h3><div class="quizbox" data-quiz="hd"></div></div>
+</section>
+
+<!-- ============ 20.1.3.3 ============ -->
+<section class="sec" id="svd">
+  <div class="sec-head"><span class="secnum">§20.1.3.3</span><h2>PCA by SVD, exact and randomized</h2></div>
+  <div class="intro">
+    <p>The thin SVD of the centered data, \(\mathbf X\approx\mathbf U_X\mathbf S_X\mathbf V_X^\top\), gives PCA directly. The right singular vectors are the principal directions, \(\mathbf V_X=\mathbf W\). The scores are \(\mathbf Z=\mathbf X\mathbf W=\mathbf U_X\mathbf S_X\) (Eq. 20.23). The reconstruction \(\hat{\mathbf X}=\mathbf Z\mathbf W^\top\) is the truncated SVD (Eq. 20.24). Eigenvalues and singular values are related by \(\lambda_k=s_k^2/N\).</p>
+    <p>For very large problems, a <b>randomized SVD</b> finds the top \(L\) components in \(O(NL^2)+O(L^3)\) time after a few passes over the data, instead of \(O(ND^2)+O(D^3)\) for an exact solver.</p>
+  </div>
+
+  <div class="block lv"><h3 class="blabel"><span class="tag">Explain it</span>At your level</h3>
+    <div class="lvcard" data-lv>
+      <div data-l="1">
+        <p class="big">There's more than one way to find the same treasure.</p>
+        <p>Before, we found the important directions by building a big comparison table first. The SVD skips the table and goes straight at the data. It's like taking a photo apart into a few simple layers that, stacked together, look almost like the photo. More layers, better photo.</p>
+        <p>The "randomized" trick is like shaking the data a few times in random directions and watching which way it wobbles most. It's a shortcut that works really well when you only want the top few layers.</p>
+      </div>
+      <div data-l="2">
+        <p>Any table of numbers can be written as a sum of simple pieces, each one "a column pattern times a row pattern times a strength". That's the SVD. The strengths \(s_k\) come sorted from biggest to smallest. Keep the top \(L\) pieces and you have the best possible \(L\)-piece approximation of the table.</p>
+        <p>For centered data, the row patterns are exactly PCA's directions, and \(s_k^2/N\) is the variance along direction \(k\). In the Play box, the blocks show the shapes of the three matrices. The slider changes \(L\), and the 9s get rebuilt from \(L\) pieces.</p>
+      </div>
+      <div data-l="3">
+        <p>From \(\mathbf X=\mathbf U\mathbf S\mathbf V^\top\): \(\mathbf X^\top\mathbf X=\mathbf V\mathbf S^2\mathbf V^\top\), so the right singular vectors are eigenvectors of \(N\hat{\boldsymbol\Sigma}\) and \(\lambda_k=s_k^2/N\). Then
+        \[\mathbf Z=\mathbf X\mathbf V_L=\mathbf U\mathbf S\mathbf V^\top\mathbf V_L=\mathbf U_L\mathbf S_L,\qquad\hat{\mathbf X}=\mathbf Z\mathbf V_L^\top=\mathbf U_L\mathbf S_L\mathbf V_L^\top.\]</p>
+        <p><b>Randomized SVD</b> [HMT11]. (1) Draw a random \(D\times(L+p)\) matrix \(\boldsymbol\Omega\) and form \(\mathbf Y=\mathbf X\boldsymbol\Omega\), which samples the column space. (2) Optionally do \(q\) power iterations \(\mathbf Y\leftarrow\mathbf X\mathbf X^\top\mathbf Y\) to sharpen the spectrum. (3) Orthonormalize: \(\mathbf Y=\mathbf Q\mathbf R\). (4) Do an exact SVD of the small \((L+p)\times D\) matrix \(\mathbf B=\mathbf Q^\top\mathbf X\). (5) Lift back: \(\mathbf U=\mathbf Q\tilde{\mathbf U}\).</p>
+      </div>
+      <div data-l="4">
+        <p>Randomized range finding comes with an expected error bound: \(\mathbb E\|\mathbf X-\mathbf Q\mathbf Q^\top\mathbf X\|\le\big(1+\tfrac{4\sqrt{L+p}}{p-1}\sqrt{\min(N,D)}\big)\,s_{L+1}\), and \(q\) power iterations shrink the tail term by \((s_{L+1}/s_L)^{2q}\)-type factors. Oversampling \(p\approx5\)–10 and \(q\in\{1,2\}\) are standard (sklearn's <code>svd_solver="randomized"</code> uses \(p=10\) and \(q\) chosen by size). Re-orthonormalize between power steps or the columns collapse onto \(\mathbf u_1\).</p>
+        <p>The quoted \(O(NL^2)+O(L^3)\) counts the small factorizations. Each pass over the data also costs \(O(NDL)\), which dominates when \(D\) is large but is easy to parallelize and stream. For sparse \(\mathbf X\), don't center explicitly (that would densify it). Use implicit centering \(\mathbf X\boldsymbol\Omega-\mathbf 1\bar{\mathbf x}^\top\boldsymbol\Omega\) instead, as <code>TruncatedSVD</code> and LSA do.</p>
+        <p>Signs of singular vector pairs are arbitrary, so compare subspaces or use \(|\cos|\), as the table does. Use <code>svd_flip</code>-style conventions if you need reproducible signs across runs.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>X ≈ U S Vᵀ on the 9s</h3>
+    <div class="panel">
+      <p class="hint">The 300 centered training 9s form \(\mathbf X\) (300×256). The exact PCA comes from the full eigendecomposition. The randomized SVD uses rank \(L\), oversampling \(p\) and \(q\) power iterations, all running in your browser. The table compares \(s_k^2/N\) with \(\lambda_k\) and each randomized \(\mathbf v_k\) with the exact \(\mathbf w_k\).</p>
+      <div class="ctrl"><label for="svd-L">rank L</label><input type="range" id="svd-L" min="1" max="40" step="1" value="8"><output id="svd-L-o"></output></div>
+      <div class="ctrl"><label for="svd-p">oversampling p</label><input type="range" id="svd-p" min="0" max="20" step="1" value="5"><output id="svd-p-o"></output></div>
+      <div class="btns" style="margin-top:4px"><span class="lab">power iterations q</span><div class="seg" id="svd-q"><button data-v="0">0</button><button data-v="1" class="on">1</button><button data-v="2">2</button><button data-v="4">4</button></div><button class="b" id="svd-seed">New random Ω</button></div>
+      <div class="blocks" id="svd-blocks"></div>
+      <div class="two" style="margin-top:6px">
+        <div class="scroll"><table class="t" id="svd-tab"></table></div>
+        <div><p class="cap">originals (top) and rank-L reconstructions U<sub>L</sub>S<sub>L</sub>V<sub>L</sub>ᵀ + x̄ (bottom)</p><div class="imgrow six" id="svd-orig"></div><div class="imgrow six" id="svd-reco" style="margin-top:6px"></div></div>
+      </div>
+      <div class="readout" id="svd-stats"></div>
+    </div>
+  </div>
+
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Eqs. 20.23–20.24</h3>
+    <div class="mathcard">
+      <ol class="steps">
+        <li><div>Covariance eigendecomposition: \(\hat{\boldsymbol\Sigma}\propto\mathbf X^\top\mathbf X\approx\mathbf U_\Sigma\boldsymbol\Lambda_\Sigma\mathbf U_\Sigma^\top\) (top \(L\)), and \(\mathbf W=\mathbf U_\Sigma\).</div></li>
+        <li><div>Truncated SVD of the data: \(\mathbf X\approx\mathbf U_X\mathbf S_X\mathbf V_X^\top\). Since \(\mathbf X^\top\mathbf X=\mathbf V_X\mathbf S_X^2\mathbf V_X^\top\), the right singular vectors are those eigenvectors: \(\mathbf V_X=\mathbf U_\Sigma=\mathbf W\). (Eq. 7.184)</div></li>
+        <li><div>Eigenvalues vs singular values: \(\lambda_k=s_k^2/N\).</div></li>
+        <li><div>Scores: \(\mathbf Z=\mathbf X\mathbf W=\mathbf U_X\mathbf S_X\mathbf V_X^\top\mathbf V_X=\mathbf U_X\mathbf S_X\). (20.23) <span class="why">\(\mathbf V_X^\top\mathbf V_X=\mathbf I_L\).</span></div></li>
+        <li><div>Reconstruction: \(\hat{\mathbf X}=\mathbf Z\mathbf W^\top=\mathbf U_X\mathbf S_X\mathbf V_X^\top\). (20.24) This is exactly the rank-\(L\) truncated SVD (§7.5.5).</div></li>
+        <li><div>Storage for rank \(L\): \(NL+L+LD\) numbers instead of \(ND\). <span class="why">The compression stat in the Play box.</span></div></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>PCA by SVD</h3><div class="quizbox" data-quiz="svd"></div></div>
+</section>
+
+<!-- ============ 20.1.4.1 ============ -->
+<section class="sec" id="re">
+  <div class="sec-head"><span class="secnum">§20.1.4.1</span><h2>Choosing L by reconstruction error, and why the test curve won't turn up</h2></div>
+  <div class="intro">
+    <p>Define \(\mathcal L_L=\frac1{|\mathcal D|}\sum_{n\in\mathcal D}\|\mathbf x_n-\hat{\mathbf x}_n\|^2\), with \(\hat{\mathbf x}_n=\mathbf W\mathbf z_n+\boldsymbol\mu\) and \(\mathbf z_n=\mathbf W^\top(\mathbf x_n-\boldsymbol\mu)\) (Eq. 20.25). On the training set it falls to 0 at \(L=\operatorname{rank}(\mathbf X)\). On a test set, unlike supervised learning, it <b>keeps falling</b>, with no U-shape (Fig. 20.6). PCA isn't a proper generative model, so extra dimensions can only help it rebuild new data.</p>
+  </div>
+
+  <div class="block lv"><h3 class="blabel"><span class="tag">Explain it</span>At your level</h3>
+    <div class="lvcard" data-lv>
+      <div data-l="1">
+        <p class="big">How many knobs should we keep? More knobs always draw the picture better.</p>
+        <p>With 1 knob the 9s look blurry. With 10 they look good. With 256 knobs, one for every little square, you can copy any picture perfectly, even a brand-new one. So "how well does it copy?" never tells you to stop. That's a puzzle the next two sections try to solve.</p>
+      </div>
+      <div data-l="2">
+        <p>In ordinary machine learning, adding complexity eventually makes test error go <b>up</b> (overfitting), and the bottom of that U tells you where to stop. PCA's test reconstruction error doesn't do that. It just keeps going down.</p>
+        <p>Why? A bigger \(L\) means a bigger flat "sheet" to drop points onto, and a bigger sheet is closer to <i>every</i> point, old or new. At \(L=D\) the sheet is the whole space, and every point is rebuilt exactly. Slide \(L\) in the Play box and compare the blue (train) and orange (test) curves.</p>
+      </div>
+      <div data-l="3">
+        <p>Training error equals the sum of discarded eigenvalues, \(\mathcal L_L=\sum_{j&gt;L}\lambda_j\) (Eq. 20.26), and the Play box checks this numerically. The test error uses the same \(\mathbf W\) and \(\boldsymbol\mu\) on held-out images. It's a little larger, because the training eigenvectors fit some noise, but it is still monotone non-increasing in \(L\). Projecting onto nested subspaces \(\mathcal S_1\subset\mathcal S_2\subset\cdots\) can only shrink the residual.</p>
+        <p>The book's remedy is to look at the <b>shape</b> of these curves (scree, elbow, profile likelihood) or to use a probabilistic model (PPCA, §20.2) whose held-out likelihood <i>does</i> penalize extra dimensions. The same problem shows up with K-means reconstruction error vs \(K\) (§21.3.7).</p>
+      </div>
+      <div data-l="4">
+        <p>Squared reconstruction error is a projection residual, \(\|(\mathbf I-\mathbf P_L)(\mathbf x-\boldsymbol\mu)\|^2\), and \(\mathbf P_L\preceq\mathbf P_{L+1}\), so monotonicity holds for every point, not just on average. A held-out criterion needs a model that pays for capacity. Under PPCA, \(\log p(\mathbf x_{\text{test}})\) charges both for the noise variance \(\sigma^2\) (estimated as the mean of the discarded eigenvalues) and for the volume of \(\mathbf C=\mathbf W\mathbf W^\top+\sigma^2\mathbf I\), so it peaks at some finite \(L\).</p>
+        <p>Other principled choices: Minka's Bayesian evidence for PPCA (Laplace approximation), cross-validation on the PPCA likelihood, and "missing-entry" CV (hold out random matrix entries, impute them with rank-\(L\) SVD and score the imputation). Missing-entry CV does give a U-shape, because the held-out entries aren't used to choose their own projection. Parallel analysis (compare λ with eigenvalues of column-permuted data) and the Marchenko–Pastur edge for isotropic noise are popular nonparametric thresholds.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Fig. 20.6: train vs test reconstruction error</h3>
+    <div class="panel">
+      <div class="dsrow" data-ds="re"></div>
+      <p class="hint">PCA is fit on the training split only. Both curves use the same \(\mathbf W\) and \(\boldsymbol\mu\). Drag \(L\) and watch both the curves and the test-image reconstructions. The synthetic data have only 50 training points in \(D=60\), so the training error hits 0 at \(L=\operatorname{rank}=49\) while the test error is still positive.</p>
+      <div class="ctrl"><label for="re-L">components L</label><input type="range" id="re-L" min="0" max="256" step="1" value="10"><output id="re-L-o"></output></div>
+      <div class="two" style="margin-top:8px">
+        <div><p class="cap">mean squared reconstruction error 𝓛<sub>L</sub> vs L</p><svg class="plot" id="re-plot" viewBox="0 0 460 300"></svg>
+          <div class="keyrow"><span><i style="background:var(--c1)"></i>train</span><span><i style="background:var(--gap)"></i>test</span><span><label class="chk" style="font-size:12px"><input type="checkbox" id="re-log"> log scale</label></span></div></div>
+        <div id="re-imgs"><p class="cap">held-out test images (top) and their rank-L reconstructions (bottom)</p><div class="imgrow six" id="re-orig"></div><div class="imgrow six" id="re-reco" style="margin-top:6px"></div></div>
+      </div>
+      <div class="readout" id="re-stats"></div>
+    </div>
+  </div>
+
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Eq. 20.25 and why it's monotone</h3>
+    <div class="mathcard">
+      <ol class="steps">
+        <li><div>Encode and decode with the training mean: \(\mathbf z_n=\mathbf W^\top(\mathbf x_n-\boldsymbol\mu)\), \(\hat{\mathbf x}_n=\mathbf W\mathbf z_n+\boldsymbol\mu\).</div></li>
+        <li><div>Because \(\mathbf W\) has orthonormal columns, \(\|\mathbf x_n-\hat{\mathbf x}_n\|^2=\|\mathbf x_n-\boldsymbol\mu\|^2-\sum_{k=1}^Lz_{nk}^2\). <span class="why">Pythagoras: the residual is orthogonal to the subspace.</span></div></li>
+        <li><div>Going from \(L\) to \(L+1\) subtracts \(z_{n,L+1}^2\ge0\) more. So the error can only go down, for train <b>and</b> test points.</div></li>
+        <li><div>On the training set, \(\frac1N\sum_nz_{nk}^2=\lambda_k\), so \(\mathcal L_L=\sum_{j=1}^D\lambda_j-\sum_{k\le L}\lambda_k=\sum_{j&gt;L}\lambda_j\). (Eq. 20.26)</div></li>
+        <li><div>At \(L=\operatorname{rank}(\mathbf X_c)\) all remaining \(\lambda_j=0\), so the training error is 0. Test points still have components outside the training span until \(L=D\).</div></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Reconstruction error</h3><div class="quizbox" data-quiz="re"></div></div>
+</section>
+
+<!-- ============ 20.1.4.2 ============ -->
+<section class="sec" id="scree">
+  <div class="sec-head"><span class="secnum">§20.1.4.2</span><h2>Scree plots and the fraction of variance explained</h2></div>
+  <div class="intro">
+    <p>A <b>scree plot</b> shows the eigenvalues \(\lambda_j\) in decreasing order (Fig. 20.7a). Since \(\mathcal L_L=\sum_{j=L+1}^D\lambda_j\), it carries the same information as the training error curve. The <b>fraction of variance explained</b> \(F_L=\sum_{j\le L}\lambda_j/\sum_{j'\le L_{\max}}\lambda_{j'}\) (Eq. 20.27) accumulates it and rises toward 1 (Fig. 20.7b).</p>
+    <p>"Scree" is the pile of rubble at the foot of a cliff. The few big eigenvalues are the cliff and the long flat tail is the rubble.</p>
+  </div>
+
+  <div class="block lv"><h3 class="blabel"><span class="tag">Explain it</span>At your level</h3>
+    <div class="lvcard" data-lv>
+      <div data-l="1">
+        <p class="big">Line up the knobs from most important to least important and draw a bar for each.</p>
+        <p>The first few bars are really tall, like a cliff. Then they get short and stay short, like the little rocks at the bottom of a cliff. The tall ones are the knobs worth keeping. The short ones are mostly just wiggles and noise.</p>
+      </div>
+      <div data-l="2">
+        <p>Each eigenvalue is the amount of spread (variance) along one direction. Sort them from biggest to smallest and plot them. That's the scree plot.</p>
+        <p>The running total, divided by the grand total, is the "fraction of variance explained". If the first 10 directions explain 90%, you can describe the data with 10 numbers and lose only 10% of the spread. A common rule of thumb is to keep enough components for 90% or 95%. Drag the threshold slider in the Play box to see what \(L\) each rule picks.</p>
+      </div>
+      <div data-l="3">
+        <p>Two identities connect the plots: \(\mathcal L_L=\sum_{j&gt;L}\lambda_j\) and \(F_L=1-\mathcal L_L/\mathcal L_0\) when \(L_{\max}=D\). The scree is the negative slope of the training error curve: \(\lambda_L=\mathcal L_{L-1}-\mathcal L_L\).</p>
+        <p>Common heuristics: keep the smallest \(L\) with \(F_L\ge\tau\) (often \(\tau=0.9\) or 0.95), keep \(\lambda_j\) above the mean eigenvalue (Kaiser's rule, which on standardized data means \(\lambda&gt;1\)), or eyeball the elbow. Try the synthetic data with a known number of factors \(L^*\) and see which rule finds it.</p>
+      </div>
+      <div data-l="4">
+        <p>Variance thresholds aren't consistent estimators of the true rank. With isotropic noise \(\sigma^2\) and \(D/N\to\gamma\), the noise eigenvalues of the sample covariance spread over the Marchenko–Pastur bulk \(\sigma^2(1\pm\sqrt\gamma)^2\), not around \(\sigma^2\). A signal spike \(\ell\) is only detectable if \(\ell&gt;\sigma^2(1+\sqrt\gamma)\) (the BBP phase transition), and its sample eigenvalue is biased upward. Gavish–Donoho's optimal hard threshold \(\approx2.858\,\mathrm{median}(s)\) for square matrices comes from this.</p>
+        <p>\(F_L\) also depends on scaling (standardized or not) and on \(L_{\max}\) in Eq. 20.27. The book's Fig. 20.7b normalizes by the first 50 eigenvalues, so its 90% is relative to that truncated total. For supervised pipelines, the right \(L\) is whatever minimizes downstream validation loss, which can be much smaller or larger than any variance rule suggests.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Fig. 20.7: scree and cumulative variance</h3>
+    <div class="panel">
+      <div class="dsrow" data-ds="scree"></div>
+      <div class="ctrl"><label for="sc-L">components L</label><input type="range" id="sc-L" min="1" max="50" step="1" value="10"><output id="sc-L-o"></output></div>
+      <div class="ctrl"><label for="sc-tau">variance target τ</label><input type="range" id="sc-tau" min="0.5" max="0.99" step="0.01" value="0.9"><output id="sc-tau-o"></output></div>
+      <div class="two-even" style="margin-top:8px">
+        <div><p class="cap">(a) scree plot: λ<sub>j</sub> vs j</p><svg class="plot" id="sc-scree" viewBox="0 0 420 280"></svg></div>
+        <div><p class="cap">(b) fraction of variance explained F<sub>L</sub></p><svg class="plot" id="sc-frac" viewBox="0 0 420 280"></svg></div>
+      </div>
+      <div class="keyrow"><span><i class="s" style="background:var(--mi)"></i>kept (j ≤ L)</span><span><i class="s" style="background:var(--muted);opacity:.5"></i>discarded: sums to 𝓛<sub>L</sub></span><span><i class="d" style="color:var(--gap)"></i>τ and the L it picks</span><span><i class="d" style="color:var(--green)"></i>Kaiser: mean eigenvalue</span></div>
+      <div class="readout" id="sc-stats"></div>
+    </div>
+  </div>
+
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Eqs. 20.26–20.27</h3>
+    <div class="mathcard">
+      <ol class="steps">
+        <li><div>Total variance: \(\operatorname{tr}\hat{\boldsymbol\Sigma}=\sum_{j=1}^D\lambda_j=\frac1N\sum_n\|\mathbf x_n-\bar{\mathbf x}\|^2=\mathcal L_0\). <span class="why">The error with zero components: everything is replaced by the mean.</span></div></li>
+        <li><div>Kept variance with \(L\) components: \(\sum_{k\le L}\lambda_k\). Lost variance: \(\mathcal L_L=\sum_{j=L+1}^D\lambda_j\). (20.26, Exercise 20.4)</div></li>
+        <li><div>Fraction explained: \(\displaystyle F_L=\frac{\sum_{j=1}^L\lambda_j}{\sum_{j'=1}^{L_{\max}}\lambda_{j'}}\). (20.27) <span class="why">Increasing in \(L\), reaching 1 at \(L_{\max}\).</span></div></li>
+        <li><div>Smallest \(L\) reaching target \(\tau\): \(L_\tau=\min\{L:F_L\ge\tau\}\).</div></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Scree plots</h3><div class="quizbox" data-quiz="scree"></div></div>
+</section>
+
+<!-- ============ 20.1.4.3 ============ -->
+<section class="sec" id="prof">
+  <div class="sec-head"><span class="secnum">§20.1.4.3</span><h2>Profile likelihood: let a change-point model find the elbow</h2></div>
+  <div class="intro">
+    <p>Eigenvalue curves often have a <b>knee</b>: fast decrease while \(L&lt;L^*\), then slow once the model has captured the real structure. The profile likelihood of [ZG06] finds the knee automatically. For each split point \(L\), model the first \(L\) eigenvalues as i.i.d. \(\mathcal N(\mu_1,\sigma^2)\) and the rest as \(\mathcal N(\mu_2,\sigma^2)\), with a <b>shared</b> \(\sigma^2\). Fit by maximum likelihood, record \(\ell(L)\), and pick \(L^*=\arg\max_L\ell(L)\) (Eqs. 20.28–20.31, Fig. 20.8).</p>
+  </div>
+
+  <div class="block lv"><h3 class="blabel"><span class="tag">Explain it</span>At your level</h3>
+    <div class="lvcard" data-lv>
+      <div data-l="1">
+        <p class="big">Imagine a line of kids sorted from tallest to shortest, and you want to split them into a "tall group" and a "short group".</p>
+        <p>You try putting the split after the first kid, then after the second, then after the third, and so on. Each time you ask: "Does everybody look like they belong in their group?" The best split is where both groups look the most alike inside. For PCA, the "tall group" is the knobs worth keeping.</p>
+      </div>
+      <div data-l="2">
+        <p>The scree plot usually looks like a few big values followed by many small ones. We'd like to cut between "big" and "small" automatically.</p>
+        <p>Try every cut position \(L\). For each one, compute the average of the left group and the average of the right group, then measure how tightly the values sit around their group's average, using one shared spread for both. Good cuts make both groups tight. The profile likelihood turns "tightness" into a score, and the highest score wins. In the Play box, drag \(L\) and watch the two dashed averages and the score.</p>
+      </div>
+      <div data-l="3">
+        <p>For a split at \(L\), the MLEs are \(\mu_1(L)=\frac1L\sum_{k\le L}\lambda_k\), \(\mu_2(L)=\frac1{L_{\max}-L}\sum_{k&gt;L}\lambda_k\), and \(\sigma^2(L)=\frac1{L_{\max}}\big[\sum_{k\le L}(\lambda_k-\mu_1)^2+\sum_{k&gt;L}(\lambda_k-\mu_2)^2\big]\) (Eqs. 20.28–20.30). Plug them into the Gaussian log-likelihood (Eq. 20.31). Since \(\sigma^2\) is the MLE, \(\ell(L)=-\frac{L_{\max}}2\big(\log2\pi\sigma^2(L)+1\big)\). Maximizing \(\ell\) is the same as minimizing the pooled within-group variance.</p>
+        <p>The variance must be shared. With separate variances, a group of one or two values would get \(\hat\sigma^2\to0\) and an infinite likelihood. The i.i.d. assumption is obviously wrong (the λ's are sorted), but it's good enough to locate the change point.</p>
+      </div>
+      <div data-l="4">
+        <p>This is one-dimensional 2-means (Jenks natural breaks), restricted to contiguous splits of a sorted sequence, so it is solved exactly by an \(O(L_{\max})\) scan with prefix sums. Its weaknesses follow from that. It's dominated by the largest eigenvalues in absolute terms, so a single huge \(\lambda_1\) can pull \(L^*\) to 1 even when several components matter. Running it on \(\log\lambda\) is a common robustification. Try the digits with and without the log toggle.</p>
+        <p>The book notes the same method applies to K-means distortion vs \(K\) (§21.3.7). Alternatives with a probabilistic reading are Minka's PPCA evidence, BIC on the PPCA likelihood, and the "gap statistic" style comparison with a null reference. For the spiked-covariance model, eigenvalues above the MP edge \(\sigma^2(1+\sqrt{D/N})^2\) are a principled count.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block play"><h3 class="blabel"><span class="tag">Play</span>Fig. 20.8: the change-point model, split by split</h3>
+    <div class="panel">
+      <div class="dsrow" data-ds="prof"></div>
+      <div class="ctrl"><label for="pf-L">split L</label><input type="range" id="pf-L" min="1" max="49" step="1" value="5"><output id="pf-L-o"></output></div>
+      <div class="btns"><button class="b pri" id="pf-best">Jump to L* = argmax ℓ</button><label class="chk"><input type="checkbox" id="pf-log"> run on log λ instead of λ</label></div>
+      <div class="two-even" style="margin-top:10px">
+        <div><p class="cap">eigenvalues with the two-group fit: μ₁ (k ≤ L), μ₂ (k &gt; L), ±σ bands</p><svg class="plot" id="pf-fit" viewBox="0 0 420 280"></svg></div>
+        <div><p class="cap">profile log likelihood ℓ(L)</p><svg class="plot" id="pf-ll" viewBox="0 0 420 280"></svg></div>
+      </div>
+      <div class="keyrow"><span><i class="s" style="background:var(--c1)"></i>group 1</span><span><i class="s" style="background:var(--gap)"></i>group 2</span><span><i style="background:var(--mi)"></i>ℓ(L)</span><span><i class="d" style="color:var(--green)"></i>true L* (synthetic data)</span></div>
+      <div class="readout" id="pf-stats"></div>
+    </div>
+  </div>
+
+  <div class="block math"><h3 class="blabel"><span class="tag">Math, slowly</span>Eqs. 20.28–20.31</h3>
+    <div class="mathcard">
+      <ol class="steps">
+        <li><div>Sorted errors \(\lambda_1\ge\lambda_2\ge\cdots\ge\lambda_{L_{\max}}\) (eigenvalues for PCA).</div></li>
+        <li><div>Model for split \(L\): \(\lambda_k\sim\mathcal N(\mu_1,\sigma^2)\) if \(k\le L\), \(\lambda_k\sim\mathcal N(\mu_2,\sigma^2)\) if \(k&gt;L\), independent.</div></li>
+        <li><div>MLEs: \(\displaystyle\mu_1(L)=\frac{\sum_{k\le L}\lambda_k}{L},\quad\mu_2(L)=\frac{\sum_{k&gt;L}\lambda_k}{L_{\max}-L}\). (20.28–20.29)</div></li>
+        <li><div>Pooled variance: \(\displaystyle\sigma^2(L)=\frac{\sum_{k\le L}(\lambda_k-\mu_1(L))^2+\sum_{k&gt;L}(\lambda_k-\mu_2(L))^2}{L_{\max}}\). (20.30)</div></li>
+        <li><div>Profile log likelihood: \(\displaystyle\ell(L)=\sum_{k=1}^L\log\mathcal N(\lambda_k\mid\mu_1(L),\sigma^2(L))+\sum_{k=L+1}^{L_{\max}}\log\mathcal N(\lambda_k\mid\mu_2(L),\sigma^2(L))\). (20.31)</div></li>
+        <li><div>At the MLE the squared terms sum to \(L_{\max}\sigma^2\), so \(\ell(L)=-\tfrac{L_{\max}}2\big[\log(2\pi\sigma^2(L))+1\big]\). <span class="why">Highest likelihood = smallest pooled variance.</span></div></li>
+        <li><div>Choose \(L^*=\arg\max_{1\le L&lt;L_{\max}}\ell(L)\). <span class="why">\(L=L_{\max}\) would leave group 2 empty, so the scan stops one short.</span></div></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="block quiz"><h3 class="blabel"><span class="tag">Check yourself</span>Profile likelihood</h3><div class="quizbox" data-quiz="prof"></div></div>
+</section>
+
+<section class="sec" id="cheat">
+  <div class="sec-head"><span class="secnum">—</span><h2>Cheat sheet</h2></div>
+  <div class="block">
+    <div class="panel scroll">
+      <table class="vs">
+        <thead><tr><th></th><th>In words</th><th>In symbols</th></tr></thead>
+        <tbody>
+          <tr><th>Encode / decode</th><td>Linear projection down, linear map back up.</td><td>\(\mathbf z=\mathbf W^\top\mathbf x,\ \hat{\mathbf x}=\mathbf W\mathbf z,\ \mathbf W^\top\mathbf W=\mathbf I\)</td></tr>
+          <tr><th>Distortion (20.1)</th><td>Average squared reconstruction error.</td><td>\(\frac1N\sum_n\|\mathbf x_n-\mathbf W\mathbf W^\top\mathbf x_n\|^2\)</td></tr>
+          <tr><th>Covariance (20.2)</th><td>Centered scatter matrix over N.</td><td>\(\hat{\boldsymbol\Sigma}=\frac1N\mathbf X_c^\top\mathbf X_c\)</td></tr>
+          <tr><th>Solution</th><td>Top-L eigenvectors of the covariance.</td><td>\(\hat{\mathbf W}=\mathbf U_L,\ \hat{\boldsymbol\Sigma}\mathbf u_k=\lambda_k\mathbf u_k\)</td></tr>
+          <tr><th>Min error = max variance</th><td>Error + kept variance = total variance.</td><td>\(\mathcal L(\mathbf w)=\operatorname{tr}\hat{\boldsymbol\Sigma}-\mathbf w^\top\hat{\boldsymbol\Sigma}\mathbf w\)</td></tr>
+          <tr><th>Eigen-images</th><td>Columns of W reshaped as images (eigenfaces).</td><td>\(\mathbf x\approx\bar{\mathbf x}+\sum_kz_k\mathbf w_k\)</td></tr>
+          <tr><th>Standardize (20.1.3.1)</th><td>PCA on the correlation matrix ignores feature units.</td><td>\(\mathbf R=\mathbf S^{-1}\hat{\boldsymbol\Sigma}\mathbf S^{-1}\)</td></tr>
+          <tr><th>Gram trick (20.21)</th><td>When D &gt; N, eigendecompose the N×N matrix.</td><td>\(\mathbf X\mathbf X^\top\mathbf U=\mathbf U\boldsymbol\Lambda\Rightarrow\mathbf X^\top\mathbf X(\mathbf X^\top\mathbf U)=(\mathbf X^\top\mathbf U)\boldsymbol\Lambda\)</td></tr>
+          <tr><th>Normalize (20.22)</th><td>Rescale the lifted vectors to unit length.</td><td>\(\mathbf V=\mathbf X^\top\mathbf U\boldsymbol\Lambda^{-1/2}\)</td></tr>
+          <tr><th>SVD link</th><td>Right singular vectors = principal directions.</td><td>\(\mathbf V_X=\mathbf W,\ \lambda_k=s_k^2/N\)</td></tr>
+          <tr><th>Scores (20.23)</th><td>Projected points.</td><td>\(\mathbf Z=\mathbf X\mathbf W=\mathbf U_X\mathbf S_X\)</td></tr>
+          <tr><th>Reconstruction (20.24)</th><td>Truncated SVD.</td><td>\(\hat{\mathbf X}=\mathbf U_X\mathbf S_X\mathbf V_X^\top\)</td></tr>
+          <tr><th>Cost</th><td>Exact vs randomized SVD.</td><td>\(O(ND^2)+O(D^3)\) vs \(O(NL^2)+O(L^3)\)</td></tr>
+          <tr><th>Reconstruction error (20.25)</th><td>Train → 0 at rank(X); test keeps falling (no U-shape).</td><td>\(\mathcal L_L=\frac1{|\mathcal D|}\sum\|\mathbf x_n-\hat{\mathbf x}_n\|^2\)</td></tr>
+          <tr><th>Discarded eigenvalues (20.26)</th><td>Training error = sum of what you threw away.</td><td>\(\mathcal L_L=\sum_{j&gt;L}\lambda_j\)</td></tr>
+          <tr><th>Variance explained (20.27)</th><td>Cumulative share of eigenvalue mass.</td><td>\(F_L=\sum_{j\le L}\lambda_j/\sum_{j'\le L_{\max}}\lambda_{j'}\)</td></tr>
+          <tr><th>Profile likelihood (20.28–31)</th><td>Two-group Gaussian change point, shared σ².</td><td>\(L^*=\arg\max_L\ell(L)=\arg\min_L\sigma^2(L)\)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <footer>Built as a study companion for Murphy, <i>Probabilistic Machine Learning: An Introduction</i> (MIT Press, CC-BY-NC-ND), §20.1–20.1.1 and §20.1.3–20.1.4. All data on this page are synthetic and generated from fixed seeds: 2-D Gaussians, procedurally drawn 16×16 digit-9 images and simulated heights and weights. Every eigendecomposition (Householder tridiagonalization + implicit QL), SVD and randomized SVD is computed live in your browser.</footer>
+</section>
+</main>
+</div>
+<script>
+(function () {
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function txt(parent, x, y, s, cls, extra) { const t = el('text', Object.assign({ x, y, class: cls || 'ax' }, extra || {}), parent); t.textContent = s; return t; }
+const lin = (d0, d1, r0, r1) => v => r0 + (v - d0) / (d1 - d0) * (r1 - r0);
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const neg = s => String(s).replace(/^-/, '−');
+const f1 = v => neg(v.toFixed(1)), f2 = v => neg((Math.abs(v) < 5e-3 ? 0 : v).toFixed(2)), f3 = v => neg((Math.abs(v) < 5e-4 ? 0 : v).toFixed(3));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pathOf = pts => pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join('');
+const svgPt = (svg, evt) => { const p = svg.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+const hexRgb = h => { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+const renderers = [];
+const pct = v => (100 * v).toFixed(1) + '%';
+const range = n => Array.from({ length: n }, (_, i) => i);
+const SUB = ['₁', '₂', '₃'];
+
+function frame(o) {
+  const L = o.l, R = o.W - o.r, T = o.t, B = o.H - o.b;
+  return { L, R, T, B, X: lin(o.x[0], o.x[1], L, R), Y: lin(o.y[0], o.y[1], B, T), iX: lin(L, R, o.x[0], o.x[1]), iY: lin(B, T, o.y[0], o.y[1]), dom: [o.x[0], o.x[1], o.y[0], o.y[1]] };
+}
+const fmtT = v => neg(String(+(+v).toFixed(3)));
+function axes(svg, f, o) {
+  (o.xt || []).forEach(v => { el('line', { x1: f.X(v), x2: f.X(v), y1: f.T, y2: f.B, class: 'gridl' }, svg); txt(svg, f.X(v), f.B + 15, (o.fx || fmtT)(v), 'ax', { 'text-anchor': 'middle' }); });
+  (o.yt || []).forEach(v => { el('line', { x1: f.L, x2: f.R, y1: f.Y(v), y2: f.Y(v), class: 'gridl' }, svg); txt(svg, f.L - 6, f.Y(v) + 4, (o.fy || fmtT)(v), 'ax', { 'text-anchor': 'end' }); });
+  el('line', { x1: f.L, x2: f.R, y1: f.B, y2: f.B, class: 'base' }, svg);
+  el('line', { x1: f.L, x2: f.L, y1: f.T, y2: f.B, class: 'base' }, svg);
+  if (o.xl) txt(svg, (f.L + f.R) / 2, f.B + 31, o.xl, 'axl', { 'text-anchor': 'middle' });
+  if (o.yl) txt(svg, f.L - 36, (f.T + f.B) / 2, o.yl, 'axl', { 'text-anchor': 'middle', transform: `rotate(-90 ${f.L - 36} ${(f.T + f.B) / 2})` });
+}
+function niceCeil(v) { const e = 10 ** Math.floor(Math.log10(v)); for (const m of [1, 2, 2.5, 5, 10]) if (m * e >= v - 1e-12) return m * e; return 10 * e; }
+function ticksAB(a, b, n) {
+  const s = niceCeil((b - a) / (n || 4)), out = [];
+  for (let v = Math.ceil(a / s - 1e-9) * s; v <= b + 1e-9; v += s) out.push(+v.toFixed(6));
+  return out;
+}
+let CLIPN = 0;
+function clip(svg, f) {
+  const id = 'cp' + (CLIPN++);
+  const cp = el('clipPath', { id }, el('defs', {}, svg));
+  el('rect', { x: f.L, y: f.T, width: f.R - f.L, height: f.B - f.T }, cp);
+  return el('g', { 'clip-path': `url(#${id})` }, svg);
+}
+function raster(svg, f, gw, gh, fill) {
+  const cv = document.createElement('canvas'); cv.width = gw; cv.height = gh;
+  const ctx = cv.getContext('2d'), im = ctx.createImageData(gw, gh);
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
+    const c = fill(i, gh - 1 - j), k = 4 * (j * gw + i);
+    if (!c) continue;
+    im.data[k] = c[0]; im.data[k + 1] = c[1]; im.data[k + 2] = c[2]; im.data[k + 3] = Math.round(255 * (c[3] == null ? 1 : c[3]));
+  }
+  ctx.putImageData(im, 0, 0);
+  return el('image', { x: f.L, y: f.T, width: f.R - f.L, height: f.B - f.T, href: cv.toDataURL(), preserveAspectRatio: 'none' }, svg);
+}
+function onDrag(svg, down, move, up) {
+  let active = false;
+  svg.addEventListener('pointerdown', e => { if (e.button > 0) return; const r = down(svgPt(svg, e), e); if (r === false) return; active = true; svg.setPointerCapture(e.pointerId); e.preventDefault(); });
+  svg.addEventListener('pointermove', e => { if (active) move(svgPt(svg, e), e); });
+  const end = () => { if (active) { active = false; if (up) up(); } };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+}
+function slider(id, fmt, cb) {
+  const s = $('#' + id), o = $('#' + id + '-o');
+  const go = () => { o.textContent = fmt(+s.value); if (cb) cb(+s.value); };
+  s.addEventListener('input', go); o.textContent = fmt(+s.value);
+  return { get v() { return +s.value; }, set(v) { s.value = v; o.textContent = fmt(+s.value); }, el: s };
+}
+function segm(id, cb) {
+  const s = $('#' + id);
+  s.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('button', s).forEach(x => x.classList.toggle('on', x === b)); cb(b.dataset.v, b); });
+}
+function segSet(id, val) { $$('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === val)); }
+
+/* class marks: 0 = circle (c0), 1 = square (c1), 2 = triangle (c2) */
+const CLS = ['--c0', '--c1', '--c2'];
+function mark(g, x, y, c, r, extra) {
+  r = r || 4.6; const fill = `var(${CLS[c]})`, a = Object.assign({ fill, stroke: 'var(--surface)', 'stroke-width': 1.3 }, extra || {});
+  if (c === 0) return el('circle', Object.assign({ cx: x, cy: y, r }, a), g);
+  if (c === 1) return el('rect', Object.assign({ x: x - r * .88, y: y - r * .88, width: r * 1.76, height: r * 1.76, rx: 1 }, a), g);
+  return el('path', Object.assign({ d: `M${x},${y - r * 1.15}L${x + r * 1.05},${y + r * .75}L${x - r * 1.05},${y + r * .75}Z` }, a), g);
+}
+function ring(g, x, y, r, col) { return el('circle', { cx: x, cy: y, r: r || 9, fill: 'none', stroke: col || 'var(--ink)', 'stroke-width': 1.7 }, g); }
+function star(g, x, y, r) {
+  const p = []; for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, q = k % 2 ? r * .45 : r; p.push([x + q * Math.cos(a), y + q * Math.sin(a)]); }
+  el('path', { d: pathOf(p) + 'Z', fill: 'var(--red)', stroke: 'var(--surface)', 'stroke-width': 1.2 }, g);
+}
+function cross(g, x, y, s) {
+  s = s || 7; const d = `M${x - s},${y - s}L${x + s},${y + s}M${x - s},${y + s}L${x + s},${y - s}`;
+  el('path', { d, stroke: 'var(--surface)', 'stroke-width': 7, 'stroke-linecap': 'round' }, g);
+  el('path', { d, stroke: 'var(--ink)', 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
+}
+
+
+/* ---------- small drawing helpers for this lab ---------- */
+function poly(g, pts, col, w, extra) { return el('path', Object.assign({ d: pathOf(pts), fill: 'none', stroke: col, 'stroke-width': w || 2, 'stroke-linejoin': 'round' }, extra || {}), g); }
+function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+const f4 = v => neg(v.toFixed(4));
+function soft(name, a) { const c = hexRgb(cssv(name)); return [c[0], c[1], c[2], a]; }
+function whenSeen(node, cb) {
+  if (!('IntersectionObserver' in window)) { cb(); return; }
+  const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); cb(); } }, { rootMargin: '200px' });
+  io.observe(node);
+}
+
+/* ---------- small stats ---------- */
+const mean = a => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; };
+const median = a => { if (!a.length) return 0; const s = Float64Array.from(a).sort(), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+const quant = (a, q) => { const s = Float64Array.from(a).sort(); return s[clamp(Math.floor(q * (s.length - 1)), 0, s.length - 1)]; };
+const HD = 0.5;
+const stat = (k, v, c) => `<div class="stat ${c || ''}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+function golden(fn, a, b) {
+  const gr = (Math.sqrt(5) - 1) / 2; let c = b - gr * (b - a), d = a + gr * (b - a), fc = fn(c), fd = fn(d);
+  for (let k = 0; k < 90; k++) { if (fc < fd) { b = d; d = c; fd = fc; c = b - gr * (b - a); fc = fn(c); } else { a = c; c = d; fc = fd; d = a + gr * (b - a); fd = fn(d); } }
+  return (a + b) / 2;
+}
+function runner(btn, label, step, getM, target, draw, per) {
+  let anim = 0;
+  const stop = () => { if (anim) cancelAnimationFrame(anim); anim = 0; btn.textContent = label; };
+  btn.addEventListener('click', () => {
+    if (anim) { stop(); return; }
+    btn.textContent = 'Pause';
+    const tick = () => { for (let k = 0; k < per && getM() < target(); k++) step(); draw(); if (getM() < target()) anim = requestAnimationFrame(tick); else stop(); };
+    anim = requestAnimationFrame(tick);
+  });
+  return stop;
+}
+
+
+/*CORE-START*/
+/* ---------- random ---------- */
+function rng(s) { return () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(r) { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+/* ================= linear algebra ================= */
+/* symmetric eigendecomposition: Householder tridiagonalization + implicit QL (after JAMA tred2/tql2); returns descending */
+function eigSym(A) {
+  const n = A.length; const V = A.map(r => Float64Array.from(r)); const d = new Float64Array(n), e = new Float64Array(n);
+  for (let j = 0; j < n; j++) d[j] = V[n - 1][j];
+  for (let i = n - 1; i > 0; i--) {
+    let scale = 0, h = 0;
+    for (let k = 0; k < i; k++) scale += Math.abs(d[k]);
+    if (scale === 0) {
+      e[i] = d[i - 1];
+      for (let j = 0; j < i; j++) { d[j] = V[i - 1][j]; V[i][j] = 0; V[j][i] = 0; }
+    } else {
+      for (let k = 0; k < i; k++) { d[k] /= scale; h += d[k] * d[k]; }
+      let f = d[i - 1], g = Math.sqrt(h);
+      if (f > 0) g = -g;
+      e[i] = scale * g; h -= f * g; d[i - 1] = f - g;
+      for (let j = 0; j < i; j++) e[j] = 0;
+      for (let j = 0; j < i; j++) {
+        f = d[j]; V[j][i] = f; g = e[j] + V[j][j] * f;
+        for (let k = j + 1; k <= i - 1; k++) { g += V[k][j] * d[k]; e[k] += V[k][j] * f; }
+        e[j] = g;
+      }
+      f = 0;
+      for (let j = 0; j < i; j++) { e[j] /= h; f += e[j] * d[j]; }
+      const hh = f / (h + h);
+      for (let j = 0; j < i; j++) e[j] -= hh * d[j];
+      for (let j = 0; j < i; j++) {
+        f = d[j]; g = e[j];
+        for (let k = j; k <= i - 1; k++) V[k][j] -= (f * e[k] + g * d[k]);
+        d[j] = V[i - 1][j]; V[i][j] = 0;
+      }
+    }
+    d[i] = h;
+  }
+  for (let i = 0; i < n - 1; i++) {
+    V[n - 1][i] = V[i][i]; V[i][i] = 1;
+    const h = d[i + 1];
+    if (h !== 0) {
+      for (let k = 0; k <= i; k++) d[k] = V[k][i + 1] / h;
+      for (let j = 0; j <= i; j++) {
+        let g = 0;
+        for (let k = 0; k <= i; k++) g += V[k][i + 1] * V[k][j];
+        for (let k = 0; k <= i; k++) V[k][j] -= g * d[k];
+      }
+    }
+    for (let k = 0; k <= i; k++) V[k][i + 1] = 0;
+  }
+  for (let j = 0; j < n; j++) { d[j] = V[n - 1][j]; V[n - 1][j] = 0; }
+  V[n - 1][n - 1] = 1; e[0] = 0;
+  for (let i = 1; i < n; i++) e[i - 1] = e[i];
+  e[n - 1] = 0;
+  let f = 0, tst1 = 0; const eps = 2 ** -52;
+  for (let l = 0; l < n; l++) {
+    tst1 = Math.max(tst1, Math.abs(d[l]) + Math.abs(e[l]));
+    let m = l;
+    while (m < n) { if (Math.abs(e[m]) <= eps * tst1) break; m++; }
+    if (m > l) {
+      let iter = 0;
+      do {
+        if (++iter > 60) break;
+        let g = d[l], p = (d[l + 1] - g) / (2 * e[l]), r = Math.hypot(p, 1);
+        if (p < 0) r = -r;
+        d[l] = e[l] / (p + r); d[l + 1] = e[l] * (p + r);
+        const dl1 = d[l + 1]; let h = g - d[l];
+        for (let i = l + 2; i < n; i++) d[i] -= h;
+        f += h;
+        p = d[m]; let c = 1, c2 = c, c3 = c; const el1 = e[l + 1]; let s = 0, s2 = 0;
+        for (let i = m - 1; i >= l; i--) {
+          c3 = c2; c2 = c; s2 = s;
+          g = c * e[i]; h = c * p; r = Math.hypot(p, e[i]);
+          e[i + 1] = s * r; s = e[i] / r; c = p / r; p = c * d[i] - s * g;
+          d[i + 1] = h + s * (c * g + s * d[i]);
+          for (let k = 0; k < n; k++) { h = V[k][i + 1]; V[k][i + 1] = s * V[k][i] + c * h; V[k][i] = c * V[k][i] - s * h; }
+        }
+        p = -s * s2 * c3 * el1 * e[l] / dl1; e[l] = s * p; d[l] = c * p;
+      } while (Math.abs(e[l]) > eps * tst1);
+    }
+    d[l] += f; e[l] = 0;
+  }
+  const idx = range(n).sort((a, b) => d[b] - d[a]);
+  return { vals: idx.map(i => d[i]), vecs: idx.map(i => { const v = new Float64Array(n); for (let k = 0; k < n; k++) v[k] = V[k][i]; return v; }) };
+}
+function dot(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+function norm(a) { return Math.sqrt(dot(a, a)); }
+/* X: rows (Float64Array). returns mean, centered rows, covariance (1/N), eigen */
+function pcaFit(X) {
+  const N = X.length, D = X[0].length, mu = new Float64Array(D);
+  for (const x of X) for (let d = 0; d < D; d++) mu[d] += x[d] / N;
+  const Xc = X.map(x => x.map((v, d) => v - mu[d]));
+  const C = Array.from({ length: D }, () => new Float64Array(D));
+  for (const x of Xc) for (let i = 0; i < D; i++) { const xi = x[i] / N; if (xi === 0) continue; const row = C[i]; for (let j = i; j < D; j++) row[j] += xi * x[j]; }
+  for (let i = 0; i < D; i++) for (let j = 0; j < i; j++) C[i][j] = C[j][i];
+  const E = eigSym(C);
+  E.vals = E.vals.map(v => Math.max(v, 0));
+  return { mu, Xc, vals: E.vals, vecs: E.vecs, N, D };
+}
+/* modified Gram-Schmidt on a list of column vectors (in place) */
+function orthCols(cols) { for (let j = 0; j < cols.length; j++) { const c = cols[j]; for (let i = 0; i < j; i++) { const a = dot(cols[i], c); for (let k = 0; k < c.length; k++) c[k] -= a * cols[i][k]; } const nn = norm(c) || 1; for (let k = 0; k < c.length; k++) c[k] /= nn; } return cols; }
+const Xcol = (X, v) => { const o = new Float64Array(X.length); for (let n = 0; n < X.length; n++) o[n] = dot(X[n], v); return o; };       // X v  (N)
+const XtCol = (X, u) => { const D = X[0].length, o = new Float64Array(D); for (let n = 0; n < X.length; n++) { const a = u[n]; if (!a) continue; const x = X[n]; for (let d = 0; d < D; d++) o[d] += a * x[d]; } return o; }; // Xᵀ u (D)
+/* randomized SVD [HMT11]: X (N×D rows, centered), rank k, oversampling p, q power iterations */
+function randSVD(X, k, p, q, seed) {
+  const N = X.length, D = X[0].length, l = Math.min(k + p, N, D), r = rng(seed);
+  const Om = range(l).map(() => Float64Array.from({ length: D }, () => gauss(r)));
+  let Y = orthCols(Om.map(o => Xcol(X, o)));
+  for (let it = 0; it < q; it++) { const Z = orthCols(Y.map(y => XtCol(X, y))); Y = orthCols(Z.map(z => Xcol(X, z))); }
+  const B = Y.map(y => XtCol(X, y));                      // rows of B = Qᵀ X  (l × D)
+  const M = B.map(bi => Float64Array.from(B, bj => dot(bi, bj)));
+  const E = eigSym(M);
+  const s = [], V = [];
+  for (let j = 0; j < Math.min(k, l); j++) {
+    const sj = Math.sqrt(Math.max(E.vals[j], 0)); s.push(sj);
+    const v = new Float64Array(D); for (let i = 0; i < l; i++) { const a = E.vecs[j][i] / (sj || 1); for (let d = 0; d < D; d++) v[d] += a * B[i][d]; }
+    V.push(v);
+  }
+  return { s, V };
+}
+const now = () => (window.performance ? performance.now() : Date.now());
+const fms = t => t < 10 ? t.toFixed(1) + ' ms' : Math.round(t) + ' ms';
+const fsig = v => { if (!isFinite(v)) return '—'; const a = Math.abs(v); if (a === 0) return '0'; if (a >= 1e4 || a < 1e-3) return neg(v.toExponential(2)).replace('e', '×10^').replace('+', ''); return neg(v.toPrecision(a >= 100 ? 4 : 3)); };
+
+/* ================= digit images ================= */
+const G = 16, DD = G * G;
+function segD(px, py, ax, ay, bx, by) { const vx = bx - ax, vy = by - ay, t = clamp(((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy), 0, 1); return Math.hypot(px - ax - t * vx, py - ay - t * vy); }
+function nine(p, r) {
+  const img = new Float64Array(DD), c = Math.cos(p.slant), s = Math.sin(p.slant);
+  const cy = -2.6, R = p.loop, bx = R * 0.92, by = cy + 0.9, ex = bx - 1.2 + p.curl, ey = 6.2;
+  for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) {
+    const X = i - 7.5 - p.dx, Y = j - 7.5, u = c * X + s * Y, v = -s * X + c * Y;
+    const d = Math.min(Math.abs(Math.hypot(u, v - cy) - R), segD(u, v, bx, by - 1.2, ex, ey));
+    img[j * G + i] = clamp(1 / (1 + Math.exp((d - p.th) / 0.32)) + 0.04 * gauss(r), 0, 1);
+  }
+  return img;
+}
+function digits(n, seed) {
+  const r = rng(seed), out = [];
+  for (let k = 0; k < n; k++) out.push(nine({ slant: 0.36 * gauss(r), th: Math.max(0.35, 0.95 + 0.32 * gauss(r)), loop: 2.9 + 0.35 * gauss(r), curl: 0.8 * gauss(r), dx: 0.25 * gauss(r) }, r));
+  return out;
+}
+function mkImg(host, cap) {
+  const fg = document.createElement('figure'), cv = document.createElement('canvas');
+  cv.width = cv.height = G; cv.className = 'px'; fg.appendChild(cv);
+  if (cap != null) { const fc = document.createElement('figcaption'); fc.innerHTML = cap; fg.appendChild(fc); }
+  host.appendChild(fg); return cv;
+}
+function paintImg(cv, v, mode) {
+  const ctx = cv.getContext('2d'), im = ctx.createImageData(G, G);
+  const S = hexRgb(cssv('--surface')), I = hexRgb(cssv('--ink')), A = hexRgb(cssv('--c0')), B = hexRgb(cssv('--c1'));
+  let m = 1; if (mode === 'div') { m = 1e-12; for (let k = 0; k < v.length; k++) m = Math.max(m, Math.abs(v[k])); }
+  for (let k = 0; k < DD; k++) {
+    let col = I, t;
+    if (mode === 'div') { t = v[k] / m; col = t < 0 ? A : B; t = Math.abs(t); } else t = clamp(v[k], 0, 1);
+    for (let c = 0; c < 3; c++) im.data[4 * k + c] = Math.round(S[c] + (col[c] - S[c]) * t);
+    im.data[4 * k + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+}
+/* build the digit dataset + full PCA once */
+const DIG = (() => {
+  const X = digits(500, 9), tr = X.slice(0, 300), te = X.slice(300);
+  const t0 = now(); const P = pcaFit(tr); const tExact = now() - t0;
+  const Ztr = P.Xc.map(x => P.vecs.map(w => dot(w, x)));
+  const Xte = te.map(x => x.map((v, d) => v - P.mu[d]));
+  const Zte = Xte.map(x => P.vecs.map(w => dot(w, x)));
+  const sq = A => A.map(x => dot(x, x));
+  return { tr, te, P, Ztr, Zte, nTr: sq(P.Xc), nTe: sq(Xte), tExact };
+})();
+function recon(P, z, L) { const v = Float64Array.from(P.mu); for (let k = 0; k < L; k++) { const a = z[k], w = P.vecs[k]; for (let d = 0; d < v.length; d++) v[d] += a * w[d]; } return v; }
+
+/* ================= 20.1: 2-D PCA ================= */
+(function () {
+  const svg = $('#pc-plot'), cur = $('#pc-curve'), strip = $('#pc-strip');
+  const f = frame({ W: 440, H: 420, l: 34, r: 10, t: 10, b: 30, x: [-5, 5], y: [-4.8, 4.8] });
+  let seed = 3, X = [], m = [0, 0], S = [[1, 0], [0, 1]], E;
+  const th = slider('pc-th', v => v.toFixed(1) + '°', draw);
+  const elg = slider('pc-el', v => v.toFixed(2), () => { gen(); draw(); });
+  function gen() {
+    const r = rng(seed), phi = 0.55 + 0.25 * gauss(r), s1 = 1.75, s2 = s1 * elg.v, c = Math.cos(phi), s = Math.sin(phi);
+    X = range(40).map(() => { const a = s1 * gauss(r), b = s2 * gauss(r); return [0.6 + c * a - s * b, 0.3 + s * a + c * b]; });
+    m = [mean(X.map(p => p[0])), mean(X.map(p => p[1]))];
+    let sxx = 0, sxy = 0, syy = 0;
+    X.forEach(([x, y]) => { const dx = x - m[0], dy = y - m[1]; sxx += dx * dx / 40; sxy += dx * dy / 40; syy += dy * dy / 40; });
+    S = [[sxx, sxy], [sxy, syy]];
+    const tr = sxx + syy, det = sxx * syy - sxy * sxy, disc = Math.sqrt(Math.max(tr * tr / 4 - det, 0));
+    const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    E = { l1: tr / 2 + disc, l2: tr / 2 - disc, tr, a1: ((ang * 180 / Math.PI) % 180 + 180) % 180 };
+  }
+  const Vof = deg => { const t = deg * Math.PI / 180, c = Math.cos(t), s = Math.sin(t); return c * c * S[0][0] + 2 * c * s * S[0][1] + s * s * S[1][1]; };
+  function setTh(deg) { th.set(((deg % 180) + 180) % 180); draw(); }
+  onDrag(svg, p => { setTh(Math.atan2(f.iY(p.y) - m[1], f.iX(p.x) - m[0]) * 180 / Math.PI); }, p => { setTh(Math.atan2(f.iY(p.y) - m[1], f.iX(p.x) - m[0]) * 180 / Math.PI); });
+  svg.addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { setTh(th.v - 1); e.preventDefault(); } if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { setTh(th.v + 1); e.preventDefault(); } });
+  $('#pc-u1').onclick = () => setTh(E.a1);
+  $('#pc-u2').onclick = () => setTh(E.a1 + 90);
+  $('#pc-pow').onclick = () => { const t = th.v * Math.PI / 180, w = [Math.cos(t), Math.sin(t)], v = [S[0][0] * w[0] + S[0][1] * w[1], S[1][0] * w[0] + S[1][1] * w[1]]; setTh(Math.atan2(v[1], v[0]) * 180 / Math.PI); };
+  $('#pc-new').onclick = () => { seed++; gen(); draw(); };
+  $('#pc-res').onchange = draw;
+  function draw() {
+    const t = th.v * Math.PI / 180, w = [Math.cos(t), Math.sin(t)];
+    clear(svg);
+    axes(svg, f, { xt: [-4, -2, 0, 2, 4], yt: [-4, -2, 0, 2, 4], xl: 'x₁', yl: 'x₂' });
+    const g = clip(svg, f);
+    poly(g, [[f.X(m[0] - 9 * w[0]), f.Y(m[1] - 9 * w[1])], [f.X(m[0] + 9 * w[0]), f.Y(m[1] + 9 * w[1])]], 'var(--mi)', 2.4);
+    const a1 = E.a1 * Math.PI / 180;
+    poly(g, [[f.X(m[0] - 9 * Math.cos(a1)), f.Y(m[1] - 9 * Math.sin(a1))], [f.X(m[0] + 9 * Math.cos(a1)), f.Y(m[1] + 9 * Math.sin(a1))]], 'var(--muted)', 1, { 'stroke-dasharray': '4 4' });
+    const Z = X.map(([x, y]) => (x - m[0]) * w[0] + (y - m[1]) * w[1]);
+    if ($('#pc-res').checked) X.forEach(([x, y], i) => poly(g, [[f.X(x), f.Y(y)], [f.X(m[0] + Z[i] * w[0]), f.Y(m[1] + Z[i] * w[1])]], 'var(--gap)', 1.6));
+    X.forEach(([x, y]) => el('circle', { cx: f.X(x), cy: f.Y(y), r: 4.2, fill: 'var(--c1)', stroke: 'var(--surface)', 'stroke-width': 1 }, g));
+    Z.forEach(z => el('circle', { cx: f.X(m[0] + z * w[0]), cy: f.Y(m[1] + z * w[1]), r: 3.6, fill: 'none', stroke: 'var(--c0)', 'stroke-width': 1.6 }, g));
+    el('circle', { cx: f.X(m[0]), cy: f.Y(m[1]), r: 5, fill: 'var(--ink)', stroke: 'var(--surface)', 'stroke-width': 1.5 }, g);
+    el('line', { x1: f.X(m[0]), y1: f.Y(m[1]), x2: f.X(m[0] + 1.6 * w[0]), y2: f.Y(m[1] + 1.6 * w[1]), stroke: 'var(--mi)', 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
+    txt(g, f.X(m[0] + 1.95 * w[0]), f.Y(m[1] + 1.95 * w[1]) + 4, 'w', 'lbl halo', { fill: 'var(--mi)', 'text-anchor': 'middle' });
+    /* curve */
+    clear(cur);
+    const ymax = niceCeil(E.tr * 1.05), fc = frame({ W: 420, H: 280, l: 44, r: 12, t: 10, b: 36, x: [0, 180], y: [0, ymax] });
+    axes(cur, fc, { xt: [0, 45, 90, 135, 180], yt: ticksAB(0, ymax, 4), xl: 'θ (degrees)', fx: v => v + '°' });
+    const Ls = [], Vs = []; for (let d = 0; d <= 180; d += 1.5) { const V = Vof(d); Vs.push([fc.X(d), fc.Y(V)]); Ls.push([fc.X(d), fc.Y(E.tr - V)]); }
+    el('line', { x1: fc.X(E.a1), x2: fc.X(E.a1), y1: fc.T, y2: fc.B, stroke: 'var(--muted)', 'stroke-dasharray': '4 4' }, cur);
+    poly(cur, Ls, 'var(--gap)', 2.4); poly(cur, Vs, 'var(--mi)', 2.4);
+    const V = Vof(th.v), L = E.tr - V;
+    el('line', { x1: fc.X(th.v), x2: fc.X(th.v), y1: fc.T, y2: fc.B, stroke: 'var(--ink)', 'stroke-width': 1 }, cur);
+    el('circle', { cx: fc.X(th.v), cy: fc.Y(L), r: 5, fill: 'var(--gap)', stroke: 'var(--surface)', 'stroke-width': 1.5 }, cur);
+    el('circle', { cx: fc.X(th.v), cy: fc.Y(V), r: 5, fill: 'var(--mi)', stroke: 'var(--surface)', 'stroke-width': 1.5 }, cur);
+    /* strip */
+    clear(strip);
+    const fs = lin(-6, 6, 14, 406);
+    el('line', { x1: 14, x2: 406, y1: 32, y2: 32, class: 'base' }, strip);
+    [-6, -4, -2, 0, 2, 4, 6].forEach(v => { el('line', { x1: fs(v), x2: fs(v), y1: 29, y2: 35, class: 'base' }, strip); txt(strip, fs(v), 52, neg(String(v)), 'ax', { 'text-anchor': 'middle' }); });
+    Z.forEach(z => el('circle', { cx: fs(clamp(z, -6.2, 6.2)), cy: 22, r: 3.6, fill: 'none', stroke: 'var(--c0)', 'stroke-width': 1.5, opacity: .85 }, strip));
+    const cosv = Math.abs(Math.cos(t - a1));
+    $('#pc-stats').innerHTML = stat('angle θ', th.v.toFixed(1) + '°') + stat('𝓛(w) error', f3(L), 'a') + stat('𝕍[z] kept', f3(V), 'm') + stat('𝓛 + 𝕍 = tr Σ̂', f3(E.tr)) +
+      stat('λ₁ · λ₂', f2(E.l1) + ' · ' + f2(E.l2)) + stat('angle of u₁', E.a1.toFixed(1) + '°', 'b') + stat('|cos(w, u₁)|', f3(cosv), cosv > 0.9995 ? 'g' : '');
+  }
+  gen(); draw(); renderers.push(draw);
+})();
+
+/* ================= 20.1.1: digits ================= */
+(function () {
+  const P = DIG.P, svg = $('#ex-plot');
+  const z1 = DIG.Ztr.map(z => z[0]), z2 = DIG.Ztr.map(z => z[1]);
+  const pad = (a, b) => [a - 0.08 * (b - a), b + 0.08 * (b - a)];
+  const xr = pad(Math.min(...z1), Math.max(...z1)), yr = pad(Math.min(...z2), Math.max(...z2));
+  const f = frame({ W: 440, H: 400, l: 40, r: 10, t: 10, b: 34, x: xr, y: yr });
+  const Q = [0.05, 0.25, 0.5, 0.75, 0.95], qx = Q.map(q => quant(z1, q)), qy = Q.map(q => quant(z2, q));
+  const near = (a, b) => { let bi = 0, bd = Infinity; for (let n = 0; n < z1.length; n++) { const d = (z1[n] - a) ** 2 + (z2[n] - b) ** 2; if (d < bd) { bd = d; bi = n; } } return bi; };
+  const verts = []; for (let j = 4; j >= 0; j--) for (let i = 0; i < 5; i++) verts.push(near(qx[i], qy[j]));
+  const gridCv = verts.map(() => mkImg($('#ex-grid')));
+  let probe = [qx[2], qy[2]];
+  onDrag(svg, p => { probe = [f.iX(p.x), f.iY(p.y)]; drawScatter(); }, p => { probe = [clamp(f.iX(p.x), xr[0], xr[1]), clamp(f.iY(p.y), yr[0], yr[1])]; drawScatter(); });
+  function drawScatter() {
+    clear(svg);
+    axes(svg, f, { xt: ticksAB(xr[0], xr[1], 5), yt: ticksAB(yr[0], yr[1], 5), xl: 'first principal component z₁', yl: 'second principal component z₂' });
+    const g = clip(svg, f);
+    qx.forEach(v => el('line', { x1: f.X(v), x2: f.X(v), y1: f.T, y2: f.B, stroke: 'var(--mi)', 'stroke-dasharray': '3 4', opacity: .7 }, g));
+    qy.forEach(v => el('line', { x1: f.L, x2: f.R, y1: f.Y(v), y2: f.Y(v), stroke: 'var(--mi)', 'stroke-dasharray': '3 4', opacity: .7 }, g));
+    z1.forEach((a, n) => el('circle', { cx: f.X(a), cy: f.Y(z2[n]), r: 2.6, fill: 'var(--c1)', opacity: .55 }, g));
+    verts.forEach(n => ring(g, f.X(z1[n]), f.Y(z2[n]), 6, 'var(--c0)'));
+    cross(g, f.X(probe[0]), f.Y(probe[1]), 6);
+    const rec = recon(P, probe, 2), nn = near(probe[0], probe[1]);
+    paintImg($('#ex-rec'), rec); paintImg($('#ex-near'), DIG.tr[nn]);
+    $('#ex-hov').textContent = `z = (${f2(probe[0])}, ${f2(probe[1])}) · nearest training image #${nn}`;
+    verts.forEach((n, k) => paintImg(gridCv[k], DIG.tr[n]));
+  }
+  /* basis */
+  const tot = P.vals.reduce((a, b) => a + b, 0);
+  const basisCv = [mkImg($('#ex-basis'), 'mean x̄')].concat(range(6).map(k => mkImg($('#ex-basis'), `PC ${k + 1}<br>λ=${f3(P.vals[k])} · ${(100 * P.vals[k] / tot).toFixed(1)}%`)));
+  const zs = [1, 2, 3].map(k => slider('ex-z' + k, v => neg(v.toFixed(1)), drawBuilt));
+  $('#ex-zero').onclick = () => { zs.forEach(s => s.set(0)); drawBuilt(); };
+  function drawBuilt() { paintImg($('#ex-built'), recon(P, zs.map((s, k) => s.v * Math.sqrt(P.vals[k])), 3)); }
+  const SHOW = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const oCv = SHOW.map(n => mkImg($('#ex-orig'))), rCv = SHOW.map(() => mkImg($('#ex-reco')));
+  const Ls = slider('ex-L', v => v, drawRows);
+  function drawRows() {
+    const L = Ls.v; let err = 0;
+    SHOW.forEach((n, i) => { paintImg(oCv[i], DIG.tr[n]); const r = recon(P, DIG.Ztr[n], L); paintImg(rCv[i], r); let e = 0; for (let d = 0; d < DD; d++) e += (r[d] - DIG.tr[n][d]) ** 2; err += e / SHOW.length; });
+    const FL = P.vals.slice(0, L).reduce((a, b) => a + b, 0) / tot;
+    $('#ex-stats').innerHTML = stat('numbers per image', `${L} <span class="mini">of 256</span>`) + stat('variance explained', pct(FL), 'm') + stat('mean ‖x − x̂‖² (shown)', f3(err), 'a') + stat('Σ_{j>L} λⱼ (train avg)', f3(tot - FL * tot), 'a');
+  }
+  function drawAll() { drawScatter(); basisCv.forEach((cv, k) => paintImg(cv, k ? P.vecs[k - 1] : P.mu, k ? 'div' : '')); drawBuilt(); drawRows(); }
+  drawAll(); renderers.push(drawAll);
+})();
+
+/* ================= 20.1.3.1: covariance vs correlation ================= */
+(function () {
+  const r = rng(41), H = [], W = [], C = [];
+  for (let i = 0; i < 70; i++) { const h = 64.3 + 2.6 * gauss(r); H.push(h); W.push(138 + 4.2 * (h - 64.3) + 15 * gauss(r)); C.push(0); }
+  for (let i = 0; i < 70; i++) { const h = 69.6 + 2.8 * gauss(r); H.push(h); W.push(182 + 5 * (h - 69.6) + 20 * gauss(r)); C.push(1); }
+  const HU = { m: 0.0254, in: 1, cm: 2.54 }, WU = { kg: 0.45359237, lb: 1, oz: 16 };
+  let hu = 'in', wu = 'lb';
+  segm('cc-hu', v => { hu = v; draw(); }); segm('cc-wu', v => { wu = v; draw(); });
+  $('#cc-eq').onchange = draw;
+  function pca2(A, B) {
+    const ma = mean(A), mb = mean(B); let sxx = 0, sxy = 0, syy = 0; const n = A.length;
+    for (let i = 0; i < n; i++) { const a = A[i] - ma, b = B[i] - mb; sxx += a * a / n; sxy += a * b / n; syy += b * b / n; }
+    const tr = sxx + syy, det = sxx * syy - sxy * sxy, disc = Math.sqrt(Math.max(tr * tr / 4 - det, 0)), l1 = tr / 2 + disc;
+    let u = Math.abs(sxy) > 1e-300 ? [sxy, l1 - sxx] : (sxx >= syy ? [1, 0] : [0, 1]); const nn = Math.hypot(u[0], u[1]); u = [u[0] / nn, u[1] / nn];
+    if (u[0] < 0) u = [-u[0], -u[1]];
+    return { m: [ma, mb], u, v: [-u[1], u[0]], share: l1 / tr, sd: [Math.sqrt(sxx), Math.sqrt(syy)], rho: sxy / Math.sqrt(sxx * syy) };
+  }
+  function scatter(svg, A, B, P, xl, yl, eq) {
+    clear(svg);
+    let xa = [Math.min(...A), Math.max(...A)], ya = [Math.min(...B), Math.max(...B)];
+    const pw = 400 - 56 - 12, ph = 360 - 12 - 40;
+    if (eq) { const s = Math.max((xa[1] - xa[0]) / pw, (ya[1] - ya[0]) / ph) * 1.1, cx = (xa[0] + xa[1]) / 2, cy = (ya[0] + ya[1]) / 2; xa = [cx - s * pw / 2, cx + s * pw / 2]; ya = [cy - s * ph / 2, cy + s * ph / 2]; }
+    else { const px = (xa[1] - xa[0]) * .08, py = (ya[1] - ya[0]) * .08; xa = [xa[0] - px, xa[1] + px]; ya = [ya[0] - py, ya[1] + py]; }
+    const f = frame({ W: 400, H: 360, l: 56, r: 12, t: 12, b: 40, x: xa, y: ya });
+    axes(svg, f, { xt: ticksAB(xa[0], xa[1], 4), yt: ticksAB(ya[0], ya[1], 4), xl, yl });
+    const g = clip(svg, f), big = 1e3 * Math.max(xa[1] - xa[0], ya[1] - ya[0]);
+    A.forEach((a, i) => mark(g, f.X(a), f.Y(B[i]), C[i], 3.6));
+    const line = (u, w, extra) => poly(g, [[f.X(P.m[0] - big * u[0]), f.Y(P.m[1] - big * u[1])], [f.X(P.m[0] + big * u[0]), f.Y(P.m[1] + big * u[1])]], 'var(--mi)', w, extra);
+    line(P.v, 1.3, { 'stroke-dasharray': '5 4' }); line(P.u, 3);
+    el('circle', { cx: f.X(P.m[0]), cy: f.Y(P.m[1]), r: 5, fill: 'var(--ink)', stroke: 'var(--surface)', 'stroke-width': 1.5 }, g);
+  }
+  function draw() {
+    const A = H.map(h => h * HU[hu]), B = W.map(w => w * WU[wu]), eq = $('#cc-eq').checked;
+    const R = pca2(A, B);
+    scatter($('#cc-raw'), A, B, R, `height (${hu})`, `weight (${wu})`, eq);
+    $('#cc-cap1').textContent = `raw data in ${hu} and ${wu}, PCA on covariance`;
+    const As = A.map(a => (a - R.m[0]) / R.sd[0]), Bs = B.map(b => (b - R.m[1]) / R.sd[1]);
+    const Sd = pca2(As, Bs);
+    scatter($('#cc-std'), As, Bs, Sd, 'height (standardized)', 'weight (standardized)', true);
+    const deg = Math.atan2(R.u[1], R.u[0]) * 180 / Math.PI;
+    $('#cc-stats').innerHTML = stat('raw PC1 = (h, w)', `(${f3(R.u[0])}, ${f3(R.u[1])})`, 'm') + stat('raw PC1 share', pct(R.share)) + stat('std. dev. h · w', fsig(R.sd[0]) + ' · ' + fsig(R.sd[1])) +
+      stat('standardized PC1', `(${f3(Sd.u[0])}, ${f3(Sd.u[1])})`, 'g') + stat('standardized share = (1+ρ)/2', pct(Sd.share), 'g') + stat('correlation ρ', f3(R.rho));
+    const v = $('#cc-verdict');
+    if (deg > 80) { v.className = 'verdict bad'; v.textContent = `Raw PC1 is ${(deg).toFixed(1)}° from the height axis: almost pure weight, because ${wu} makes weight's numbers far bigger.`; }
+    else if (deg < 10) { v.className = 'verdict bad'; v.textContent = `Raw PC1 is only ${deg.toFixed(1)}° from the height axis: almost pure height, because ${hu} makes height's numbers far bigger.`; }
+    else { v.className = 'verdict meh'; v.textContent = `Raw PC1 points ${deg.toFixed(1)}° above the height axis. Change either unit and it swings; the standardized PC1 stays at 45°.`; }
+  }
+  draw(); renderers.push(draw);
+})();
+
+/* ================= 20.1.3.2: Gram trick ================= */
+(function () {
+  const ns = slider('hd-n', v => v, stale), ds = slider('hd-d', v => v, stale);
+  let seed = 7, last = null;
+  function stale() { shapes(); if (last) $('#hd-stats').style.opacity = .45; }
+  function shapes() {
+    const N = ns.v, D = ds.v, s = 0.22, px = v => Math.max(3, Math.round(v * s)) + 'px';
+    $('#hd-shapes').innerHTML = [['X', N, D], ['XᵀX  (route A)', D, D], ['XXᵀ  (route B)', N, N]].map(([nm, r, c]) => `<div class="sh"><i style="width:${px(c)};height:${px(r)}"></i>${nm}<br>${r}×${c}</div>`).join('');
+  }
+  function run() {
+    const N = ns.v, D = ds.v, r = rng(seed++), K = 5;
+    const A = range(K).map(k => Float64Array.from({ length: D }, () => gauss(r) * 3 * Math.pow(0.7, k)));
+    let X = range(N).map(() => { const z = range(K).map(() => gauss(r)), x = new Float64Array(D); for (let d = 0; d < D; d++) { let s = 0.3 * gauss(r); for (let k = 0; k < K; k++) s += z[k] * A[k][d]; x[d] = s; } return x; });
+    const mu = new Float64Array(D); X.forEach(x => x.forEach((v, d) => mu[d] += v / N)); X = X.map(x => x.map((v, d) => v - mu[d]));
+    /* route A */
+    let t0 = now();
+    const CA = Array.from({ length: D }, () => new Float64Array(D));
+    for (const x of X) for (let i = 0; i < D; i++) { const xi = x[i], row = CA[i]; for (let j = i; j < D; j++) row[j] += xi * x[j]; }
+    for (let i = 0; i < D; i++) for (let j = 0; j < i; j++) CA[i][j] = CA[j][i];
+    const EA = eigSym(CA); const tA = now() - t0;
+    /* route B */
+    t0 = now();
+    const GB = X.map(a => Float64Array.from(X, b => dot(a, b)));
+    const EB = eigSym(GB);
+    const tol = 1e-9 * EB.vals[0], rank = EB.vals.filter(v => v > tol).length;
+    const skip = $('#hd-skip').checked;
+    const VB = [], raw = [];
+    for (let j = 0; j < rank; j++) { const v = XtCol(X, EB.vecs[j]); raw.push(dot(v, v)); const sc = skip ? 1 : 1 / Math.sqrt(EB.vals[j]); for (let d = 0; d < D; d++) v[d] *= sc; VB.push(v); }
+    const tB = now() - t0;
+    const m = Math.min(6, rank);
+    let rows = '<tr><th>j</th><th>λⱼ route A (D×D)</th><th>λⱼ route B (N×N)</th><th>‖Xᵀuⱼ‖² before ÷√λ</th><th>‖vⱼ‖ after</th><th>|cos(v_A, v_B)|</th></tr>', minCos = 1, maxRel = 0;
+    for (let j = 0; j < m; j++) {
+      const c = Math.abs(dot(EA.vecs[j], VB[j])) / (norm(VB[j]) || 1); minCos = Math.min(minCos, c);
+      maxRel = Math.max(maxRel, Math.abs(EA.vals[j] - EB.vals[j]) / EA.vals[0]);
+      rows += `<tr><td>${j + 1}</td><td>${fsig(EA.vals[j])}</td><td>${fsig(EB.vals[j])}</td><td>${fsig(raw[j])}</td><td>${fsig(norm(VB[j]))}</td><td>${c.toFixed(6)}</td></tr>`;
+    }
+    $('#hd-tab').innerHTML = rows;
+    const nzA = EA.vals.filter(v => v > 1e-9 * EA.vals[0]).length;
+    $('#hd-stats').style.opacity = 1;
+    $('#hd-stats').innerHTML = stat('route A time (D×D)', fms(tA), 'a') + stat('route B time (N×N)', fms(tB), 'g') + stat('speed-up A / B', (tA / Math.max(tB, 0.05)).toFixed(1) + '×', tA > tB ? 'g' : 'r') +
+      stat('nonzero λ (≤ min(N−1, D))', `${rank} <span class="mini">A: ${nzA}</span>`) + stat('max |λ_A − λ_B| / λ₁', fsig(maxRel)) + stat('min |cos| top ' + m, minCos.toFixed(6), minCos > 0.9999 ? 'g' : 'r');
+    last = { tA, tB };
+  }
+  $('#hd-run').onclick = () => { $('#hd-run').textContent = 'Running…'; setTimeout(() => { run(); $('#hd-run').textContent = 'Run both routes'; }, 20); };
+  $('#hd-skip').onchange = () => { seed--; run(); };
+  shapes();
+  whenSeen($('#hd'), () => setTimeout(run, 50));
+})();
+
+/* ================= 20.1.3.3: SVD ================= */
+(function () {
+  const P = DIG.P, X = P.Xc, N = X.length;
+  const Ls = slider('svd-L', v => v, draw), ps = slider('svd-p', v => v, draw);
+  let q = 1, seed = 11;
+  segm('svd-q', v => { q = +v; draw(); });
+  $('#svd-seed').onclick = () => { seed++; draw(); };
+  const SHOW = [3, 14, 27, 40, 55, 71];
+  const oCv = SHOW.map(() => mkImg($('#svd-orig'))), rCv = SHOW.map(() => mkImg($('#svd-reco')));
+  const tot = P.vals.reduce((a, b) => a + b, 0);
+  function draw() {
+    const L = Ls.v, p = ps.v;
+    const t0 = now(); const R = randSVD(X, L, p, q, seed); const tR = now() - t0;
+    const k = Math.min(L, 10);
+    let rows = '<tr><th>k</th><th>λₖ exact</th><th>sₖ²/N randomized</th><th>rel. error</th><th>|cos(vₖ, wₖ)|</th></tr>', cs = 0;
+    for (let j = 0; j < L; j++) {
+      const lam = P.vals[j], sl = R.s[j] * R.s[j] / N, c = Math.abs(dot(R.V[j], P.vecs[j])); cs += c / L;
+      if (j < k) rows += `<tr><td>${j + 1}</td><td>${f4(lam)}</td><td>${f4(sl)}</td><td class="${Math.abs(sl - lam) / lam > 0.01 ? '' : 'mu'}">${fsig((sl - lam) / lam)}</td><td>${c.toFixed(4)}</td></tr>`;
+    }
+    $('#svd-tab').innerHTML = rows + (L > k ? `<tr><td colspan="5" class="mu">… ${L - k} more rows</td></tr>` : '');
+    const sc = 0.42, bx = (r, c, lab) => `<i style="width:${Math.max(6, c * sc)}px;height:${Math.max(6, r * sc)}px">${c * sc > 26 && r * sc > 16 ? lab : ''}</i>`;
+    $('#svd-blocks').innerHTML = `${bx(300, 256, 'X')}<span>300×256 ≈</span>${bx(300, L, 'U')}<span>300×${L}</span>${bx(L, L, 'S')}<span>${L}×${L}</span>${bx(L, 256, 'Vᵀ')}<span>${L}×256</span>`;
+    SHOW.forEach((n, i) => { paintImg(oCv[i], DIG.tr[n]); paintImg(rCv[i], recon(P, DIG.Ztr[n], L)); });
+    const store = N * L + L + L * 256, lost = P.vals.slice(L).reduce((a, b) => a + b, 0);
+    $('#svd-stats').innerHTML = stat('exact eigendecomposition', fms(DIG.tExact), 'a') + stat('randomized SVD (L+p=' + (L + p) + ')', fms(tR), 'g') + stat('mean |cos| over top ' + L, cs.toFixed(4), cs > 0.99 ? 'g' : cs > 0.9 ? 'a' : 'r') +
+      stat('storage NL+L+LD vs ND', `${store.toLocaleString()} <span class="mini">/ ${(N * 256).toLocaleString()}</span>`) + stat('variance kept', pct(1 - lost / tot), 'm') + stat('train 𝓛_L = Σ_{j>L} λⱼ', f3(lost), 'a');
+  }
+  whenSeen($('#svd'), draw); renderers.push(() => { SHOW.forEach((n, i) => { paintImg(oCv[i], DIG.tr[n]); paintImg(rCv[i], recon(P, DIG.Ztr[n], Ls.v)); }); });
+})();
+
+/* ================= 20.1.4: choosing L (shared data) ================= */
+const CH = (() => {
+  const st = { ds: 'dig', Ls: 4, sig: 0.5, cache: {}, subs: [] };
+  function digStats() {
+    const P = DIG.P, D = P.D, vals = P.vals;
+    const errTr = range(D + 1).map(L => { let s = 0; for (let n = 0; n < DIG.Ztr.length; n++) { let e = DIG.nTr[n]; for (let k = 0; k < L; k++) e -= DIG.Ztr[n][k] ** 2; s += e; } return Math.max(s / DIG.Ztr.length, 0); });
+    const errTe = range(D + 1).map(L => { let s = 0; for (let n = 0; n < DIG.Zte.length; n++) { let e = DIG.nTe[n]; for (let k = 0; k < L; k++) e -= DIG.Zte[n][k] ** 2; s += e; } return Math.max(s / DIG.Zte.length, 0); });
+    return { name: 'digits', D, vals, errTr, errTe, P, trueL: null };
+  }
+  function synStats(Ls, sig) {
+    const D = 60, r = rng(500 + Ls), U = orthCols(range(Ls).map(() => Float64Array.from({ length: D }, () => gauss(r))));
+    const amp = range(Ls).map(k => 3 * Math.pow(0.8, k));
+    const r2 = rng(77);
+    const gen = n => range(n).map(() => { const x = new Float64Array(D); for (let k = 0; k < Ls; k++) { const z = amp[k] * gauss(r2); for (let d = 0; d < D; d++) x[d] += z * U[k][d]; } for (let d = 0; d < D; d++) x[d] += sig * gauss(r2); return x; });
+    const tr = gen(50), te = gen(200), P = pcaFit(tr);
+    const Ztr = P.Xc.map(x => P.vecs.map(w => dot(w, x))), Xte = te.map(x => x.map((v, d) => v - P.mu[d])), Zte = Xte.map(x => P.vecs.map(w => dot(w, x)));
+    const nTr = P.Xc.map(x => dot(x, x)), nTe = Xte.map(x => dot(x, x));
+    const err = (Z, nn) => range(D + 1).map(L => { let s = 0; for (let n = 0; n < Z.length; n++) { let e = nn[n]; for (let k = 0; k < L; k++) e -= Z[n][k] ** 2; s += e; } return Math.max(s / Z.length, 0); });
+    return { name: 'synthetic', D, vals: P.vals, errTr: err(Ztr, nTr), errTe: err(Zte, nTe), P, trueL: Ls };
+  }
+  st.get = () => {
+    const key = st.ds === 'dig' ? 'dig' : `s${st.Ls}_${st.sig}`;
+    if (!st.cache[key]) st.cache[key] = st.ds === 'dig' ? digStats() : synStats(st.Ls, st.sig);
+    return st.cache[key];
+  };
+  st.lmax = () => { const S = st.get(); return Math.min(50, S.D, S.vals.filter(v => v > 1e-10 * S.vals[0]).length); };
+  st.redraw = () => st.subs.forEach(f => f());
+  /* data rows */
+  $$('[data-ds]').forEach(host => {
+    const p = host.dataset.ds;
+    host.innerHTML = `<span class="lab">data</span><div class="seg" id="${p}-ds"><button data-v="dig" class="on">digit 9s (D = 256)</button><button data-v="syn">synthetic: L* factors + noise (D = 60, N = 50)</button></div>
+      <div class="ctrl" data-syn hidden><label for="${p}-ls">true factors L*</label><input type="range" id="${p}-ls" min="1" max="12" step="1" value="4"><output id="${p}-ls-o"></output></div>
+      <div class="ctrl" data-syn hidden><label for="${p}-sig">noise σ</label><input type="range" id="${p}-sig" min="0.1" max="1.5" step="0.05" value="0.5"><output id="${p}-sig-o"></output></div>`;
+  });
+  const sync = () => $$('[data-ds]').forEach(host => {
+    const p = host.dataset.ds; segSet(p + '-ds', st.ds);
+    $$('[data-syn]', host).forEach(c => c.hidden = st.ds !== 'syn');
+    $('#' + p + '-ls').value = st.Ls; $('#' + p + '-ls-o').textContent = st.Ls;
+    $('#' + p + '-sig').value = st.sig; $('#' + p + '-sig-o').textContent = st.sig.toFixed(2);
+  });
+  $$('[data-ds]').forEach(host => {
+    const p = host.dataset.ds;
+    segm(p + '-ds', v => { st.ds = v; sync(); st.redraw(); });
+    $('#' + p + '-ls').addEventListener('input', e => { st.Ls = +e.target.value; sync(); st.redraw(); });
+    $('#' + p + '-sig').addEventListener('input', e => { st.sig = +(+e.target.value).toFixed(2); sync(); st.redraw(); });
+  });
+  sync();
+  return st;
+})();
+function profileLL(lam, Lmax) {
+  const a = lam.slice(0, Lmax), out = [null];
+  for (let L = 1; L < Lmax; L++) {
+    const g1 = a.slice(0, L), g2 = a.slice(L), m1 = mean(g1), m2 = mean(g2);
+    let ss = 0; g1.forEach(v => ss += (v - m1) ** 2); g2.forEach(v => ss += (v - m2) ** 2);
+    const s2 = Math.max(ss / Lmax, 1e-300);
+    let ll = 0; a.forEach((v, k) => { const mu = k < L ? m1 : m2; ll += -0.5 * Math.log(2 * Math.PI * s2) - (v - mu) ** 2 / (2 * s2); });
+    out.push({ L, m1, m2, s2, ll });
+  }
+  return out;
+}
+
+/* ---- 20.1.4.1 reconstruction error ---- */
+(function () {
+  const svg = $('#re-plot'), Ls = slider('re-L', v => v, draw);
+  $('#re-log').onchange = draw;
+  const SHOW = [0, 5, 11, 23, 37, 52];
+  const oCv = SHOW.map(() => mkImg($('#re-orig'))), rCv = SHOW.map(() => mkImg($('#re-reco')));
+  function draw() {
+    const S = CH.get(), D = S.D;
+    Ls.el.max = D; if (Ls.v > D) Ls.set(D);
+    const L = Ls.v, lg = $('#re-log').checked;
+    clear(svg);
+    const top = S.errTe[0] * 1.05, floor = Math.max(top * 1e-5, 1e-9);
+    const tf = lg ? (v => Math.log10(Math.max(v, floor))) : (v => v);
+    const y0 = lg ? Math.floor(Math.log10(floor)) : 0, y1 = lg ? Math.ceil(Math.log10(top)) : niceCeil(top);
+    const f = frame({ W: 460, H: 300, l: 52, r: 12, t: 10, b: 36, x: [0, D], y: [y0, y1] });
+    axes(svg, f, { xt: ticksAB(0, D, 5), yt: lg ? range(y1 - y0 + 1).map(k => y0 + k) : ticksAB(0, y1, 4), xl: 'number of components L', yl: lg ? 'log₁₀ 𝓛_L' : '𝓛_L', fy: lg ? (v => '10^' + v) : undefined });
+    const g = clip(svg, f);
+    poly(g, S.errTr.map((v, k) => [f.X(k), f.Y(tf(v))]), 'var(--c1)', 2.4);
+    poly(g, S.errTe.map((v, k) => [f.X(k), f.Y(tf(v))]), 'var(--gap)', 2.4);
+    el('line', { x1: f.X(L), x2: f.X(L), y1: f.T, y2: f.B, stroke: 'var(--ink)', 'stroke-width': 1 }, g);
+    el('circle', { cx: f.X(L), cy: f.Y(tf(S.errTr[L])), r: 5, fill: 'var(--c1)', stroke: 'var(--surface)', 'stroke-width': 1.5 }, g);
+    el('circle', { cx: f.X(L), cy: f.Y(tf(S.errTe[L])), r: 5, fill: 'var(--gap)', stroke: 'var(--surface)', 'stroke-width': 1.5 }, g);
+    if (S.trueL) el('line', { x1: f.X(S.trueL), x2: f.X(S.trueL), y1: f.T, y2: f.B, stroke: 'var(--green)', 'stroke-dasharray': '4 4' }, g);
+    const tail = S.vals.slice(L).reduce((a, b) => a + b, 0), tot = S.vals.reduce((a, b) => a + b, 0);
+    const rank = S.vals.filter(v => v > 1e-10 * S.vals[0]).length;
+    $('#re-stats').innerHTML = stat('train 𝓛_L (direct)', fsig(S.errTr[L]), 'b') + stat('Σ_{j>L} λⱼ (Eq. 20.26)', fsig(tail), 'b') + stat('test 𝓛_L', fsig(S.errTe[L]), 'a') +
+      stat('test − train', fsig(S.errTe[L] - S.errTr[L])) + stat('variance kept (train)', pct(1 - tail / tot), 'm') + stat('rank of centered train X', rank + (S.trueL ? ` <span class="mini">true L* = ${S.trueL}</span>` : ''));
+    $('#re-imgs').hidden = S.name !== 'digits';
+    if (S.name === 'digits') SHOW.forEach((n, i) => { paintImg(oCv[i], DIG.te[n]); paintImg(rCv[i], recon(DIG.P, DIG.Zte[n], L)); });
+  }
+  CH.subs.push(draw); draw(); renderers.push(draw);
+})();
+
+/* ---- 20.1.4.2 scree ---- */
+(function () {
+  const sv = $('#sc-scree'), sf = $('#sc-frac'), Ls = slider('sc-L', v => v, draw), tau = slider('sc-tau', v => v.toFixed(2), draw);
+  function draw() {
+    const S = CH.get(), Lm = CH.lmax(), lam = S.vals.slice(0, Lm);
+    Ls.el.max = Lm; if (Ls.v > Lm) Ls.set(Lm);
+    const L = Ls.v, totM = lam.reduce((a, b) => a + b, 0), meanAll = mean(S.vals);
+    const F = [0]; lam.forEach((v, k) => F.push(F[k] + v / totM));
+    const Lt = F.findIndex(v => v >= tau.v - 1e-12);
+    const kaiser = S.vals.filter(v => v > meanAll).length;
+    /* scree */
+    clear(sv);
+    const ym = niceCeil(lam[0] * 1.05), f = frame({ W: 420, H: 280, l: 48, r: 10, t: 10, b: 36, x: [0.3, Lm + 0.7], y: [0, ym] });
+    axes(sv, f, { xt: ticksAB(0, Lm, 5).filter(v => v >= 1), yt: ticksAB(0, ym, 4), xl: 'component j', yl: 'eigenvalue λⱼ', fy: fsig });
+    const bw = Math.max(1.5, (f.R - f.L) / Lm * 0.72);
+    lam.forEach((v, k) => el('rect', { x: f.X(k + 1) - bw / 2, y: f.Y(v), width: bw, height: Math.max(0, f.B - f.Y(v)), fill: k < L ? 'var(--mi)' : 'var(--muted)', opacity: k < L ? 0.9 : 0.45, rx: 1 }, sv));
+    if (meanAll < ym) { el('line', { x1: f.L, x2: f.R, y1: f.Y(meanAll), y2: f.Y(meanAll), stroke: 'var(--green)', 'stroke-dasharray': '5 4', 'stroke-width': 1.5 }, sv); }
+    if (S.trueL && S.trueL <= Lm) el('line', { x1: f.X(S.trueL + 0.5), x2: f.X(S.trueL + 0.5), y1: f.T, y2: f.B, stroke: 'var(--green)', 'stroke-width': 1 }, sv);
+    /* fraction */
+    clear(sf);
+    const g = frame({ W: 420, H: 280, l: 48, r: 10, t: 10, b: 36, x: [0, Lm], y: [0, 1] });
+    axes(sf, g, { xt: ticksAB(0, Lm, 5), yt: [0, 0.25, 0.5, 0.75, 1], xl: 'number of components L', yl: 'F_L', fy: v => Math.round(v * 100) + '%' });
+    el('line', { x1: g.L, x2: g.R, y1: g.Y(tau.v), y2: g.Y(tau.v), stroke: 'var(--gap)', 'stroke-dasharray': '5 4', 'stroke-width': 1.5 }, sf);
+    if (Lt >= 0) el('line', { x1: g.X(Lt), x2: g.X(Lt), y1: g.Y(tau.v), y2: g.B, stroke: 'var(--gap)', 'stroke-dasharray': '5 4', 'stroke-width': 1.5 }, sf);
+    poly(sf, F.map((v, k) => [g.X(k), g.Y(v)]), 'var(--mi)', 2.4);
+    el('circle', { cx: g.X(L), cy: g.Y(F[L]), r: 5, fill: 'var(--mi)', stroke: 'var(--surface)', 'stroke-width': 1.5 }, sf);
+    const tail = S.vals.slice(L).reduce((a, b) => a + b, 0);
+    $('#sc-stats').innerHTML = stat('λ_L', fsig(lam[L - 1]), 'm') + stat(`F_L (÷ first ${Lm})`, pct(F[L]), 'm') + stat('𝓛_L = Σ_{j>L} λⱼ', fsig(tail), 'a') +
+      stat(`L for τ = ${tau.v.toFixed(2)}`, Lt >= 0 ? Lt : '—', 'a') + stat('Kaiser: λ > mean λ', kaiser, 'g') + (S.trueL ? stat('true L*', S.trueL, 'g') : '');
+  }
+  CH.subs.push(draw); draw(); renderers.push(draw);
+})();
+
+/* ---- 20.1.4.3 profile likelihood ---- */
+(function () {
+  const sfit = $('#pf-fit'), sll = $('#pf-ll'), Ls = slider('pf-L', v => v, draw);
+  $('#pf-log').onchange = draw;
+  $('#pf-best').onclick = () => { const pr = cur(); Ls.set(pr.best.L); draw(); };
+  function cur() {
+    const S = CH.get(), Lm = CH.lmax(), lg = $('#pf-log').checked;
+    const lam = S.vals.slice(0, Lm).map(v => lg ? Math.log(Math.max(v, 1e-12)) : v);
+    const pr = profileLL(lam, Lm); let best = pr[1]; pr.forEach(p => { if (p && p.ll > best.ll) best = p; });
+    return { S, Lm, lam, pr, best, lg };
+  }
+  function draw() {
+    const { S, Lm, lam, pr, best, lg } = cur();
+    Ls.el.max = Lm - 1; if (Ls.v > Lm - 1) Ls.set(Lm - 1);
+    const L = Ls.v, p = pr[L], sd = Math.sqrt(p.s2);
+    /* fit */
+    clear(sfit);
+    let lo = Math.min(...lam, p.m2 - sd), hi = Math.max(...lam, p.m1 + sd); if (!lg) lo = Math.min(0, lo);
+    const padv = (hi - lo) * 0.06;
+    const f = frame({ W: 420, H: 280, l: 50, r: 10, t: 10, b: 36, x: [0.3, Lm + 0.7], y: [lo - (lg ? padv : 0), hi + padv] });
+    axes(sfit, f, { xt: ticksAB(0, Lm, 5).filter(v => v >= 1), yt: ticksAB(f.dom[2], f.dom[3], 4), xl: 'component k', yl: lg ? 'log λₖ' : 'λₖ', fy: fsig });
+    const g = clip(sfit, f);
+    el('rect', { x: f.X(0.5), y: f.Y(p.m1 + sd), width: f.X(L + 0.5) - f.X(0.5), height: f.Y(p.m1 - sd) - f.Y(p.m1 + sd), fill: 'var(--c1-soft)' }, g);
+    el('rect', { x: f.X(L + 0.5), y: f.Y(p.m2 + sd), width: f.X(Lm + 0.5) - f.X(L + 0.5), height: f.Y(p.m2 - sd) - f.Y(p.m2 + sd), fill: 'var(--gap-soft)' }, g);
+    poly(g, [[f.X(0.5), f.Y(p.m1)], [f.X(L + 0.5), f.Y(p.m1)]], 'var(--c1)', 2, { 'stroke-dasharray': '6 4' });
+    poly(g, [[f.X(L + 0.5), f.Y(p.m2)], [f.X(Lm + 0.5), f.Y(p.m2)]], 'var(--gap)', 2, { 'stroke-dasharray': '6 4' });
+    lam.forEach((v, k) => el('circle', { cx: f.X(k + 1), cy: f.Y(v), r: 3.4, fill: k < L ? 'var(--c1)' : 'var(--gap)', stroke: 'var(--surface)', 'stroke-width': 1 }, g));
+    el('line', { x1: f.X(L + 0.5), x2: f.X(L + 0.5), y1: f.T, y2: f.B, stroke: 'var(--ink)', 'stroke-width': 1 }, g);
+    if (S.trueL && S.trueL < Lm) el('line', { x1: f.X(S.trueL + 0.5), x2: f.X(S.trueL + 0.5), y1: f.T, y2: f.B, stroke: 'var(--green)', 'stroke-dasharray': '4 4' }, g);
+    txt(g, f.X(L + 0.5) + 5, f.T + 14, 'split', 'ax');
+    /* ll */
+    clear(sll);
+    const lls = pr.slice(1).map(q => q.ll), a = Math.min(...lls), b = Math.max(...lls), pd = (b - a) * 0.08 || 1;
+    const h = frame({ W: 420, H: 280, l: 58, r: 12, t: 12, b: 36, x: [0, Lm], y: [a - pd, b + pd] });
+    axes(sll, h, { xt: ticksAB(0, Lm, 5), yt: ticksAB(a - pd, b + pd, 4), xl: 'split L', yl: 'ℓ(L)', fy: fsig });
+    if (S.trueL && S.trueL < Lm) el('line', { x1: h.X(S.trueL), x2: h.X(S.trueL), y1: h.T, y2: h.B, stroke: 'var(--green)', 'stroke-dasharray': '4 4' }, sll);
+    poly(sll, pr.slice(1).map(q => [h.X(q.L), h.Y(q.ll)]), 'var(--mi)', 2.4);
+    el('line', { x1: h.X(L), x2: h.X(L), y1: h.T, y2: h.B, stroke: 'var(--ink)', 'stroke-width': 1 }, sll);
+    star(sll, h.X(best.L), h.Y(best.ll), 9);
+    el('circle', { cx: h.X(L), cy: h.Y(p.ll), r: 5, fill: 'var(--mi)', stroke: 'var(--surface)', 'stroke-width': 1.5 }, sll);
+    $('#pf-stats').innerHTML = stat('μ₁(L)', fsig(p.m1), 'b') + stat('μ₂(L)', fsig(p.m2), 'a') + stat('σ²(L) pooled', fsig(p.s2)) + stat('ℓ(L)', fsig(p.ll), 'm') +
+      stat('L* = argmax ℓ', `${best.L}` + (S.trueL ? ` <span class="mini">true ${S.trueL}</span>` : ''), best.L === L ? 'g' : 'r') + stat(lg ? 'on log λ' : 'on λ', `L_max = ${Lm}`);
+  }
+  CH.subs.push(draw); draw(); renderers.push(draw);
+})();
+
+/* ================= quiz ================= */
+const QUIZ = {
+  pca: [
+    { l: 'Kid', q: 'In the playground story, what is the "information you lost"?', o: ['How far each kid had to walk to reach the line', 'The kids\' names', 'How long the line is', 'Which kid is tallest'], a: 0, w: 'The walk to the line is the reconstruction error. PCA picks the line that makes the total walking smallest.' },
+    { l: 'HS', q: 'Why is "smallest error" the same as "most spread along the line"?', o: ['For each point, (distance along the line)² + (error)² is fixed by Pythagoras, so more of one means less of the other', 'Because the line always goes through the origin', 'They are only the same for 2-D data', 'Because errors are always negative'], a: 0, w: 'Summed over points: 𝓛 + 𝕍 = tr Σ̂, the "𝓛 + 𝕍" stat in the Play box, which never changes as you turn the line.' },
+    { l: 'Undergrad', q: 'With orthonormal W, the optimal code for a centered point is…', o: ['z = Wᵀx', 'z = Wx', 'z = (WᵀW)⁻¹x', 'z = x − Wx'], a: 0, w: 'Setting ∂𝓛/∂z = 0 gives zₙ = Wᵀxₙ, an orthogonal projection (Eq. 20.7).' },
+    { l: 'Undergrad', q: 'The constrained optimum Σ̂w = λw tells us w is an eigenvector. Which one do we pick?', o: ['The one with the largest eigenvalue', 'The one with the smallest eigenvalue', 'Any of them, they all give the same error', 'The one closest to the x-axis'], a: 0, w: 'wᵀΣ̂w = λ is the kept variance, so the largest λ minimizes the error (Eq. 20.13).' },
+    { l: 'Undergrad', q: 'In 2-D with L = 1, the smallest achievable reconstruction error equals…', o: ['λ₂, the smaller eigenvalue', 'λ₁, the larger eigenvalue', 'λ₁ + λ₂', '0'], a: 0, w: 'Error = sum of discarded eigenvalues. Check the 𝓛 stat after "Snap to u₁".' },
+    { l: 'Grad', q: 'When λ₁ ≈ λ₂ (elongation slider near 1), the first principal direction is…', o: ['poorly determined: tiny perturbations rotate it a lot', 'exactly the x-axis', 'undefined because Σ̂ is singular', 'more accurate than usual'], a: 0, w: 'A small eigengap makes eigenvectors unstable (Davis–Kahan). Power iteration also converges at rate λ₂/λ₁ ≈ 1.' }
+  ],
+  ex: [
+    { l: 'Kid', q: 'What kind of "knobs" does PCA find for pictures of 9s?', o: ['Things like how much the 9 leans and how thick the line is', 'The color of the paper', 'The name of the person who wrote it', 'How old the picture is'], a: 0, w: 'Nobody tells PCA about leaning or thickness. It finds them from how the pixels vary together.' },
+    { l: 'HS', q: 'Why can 256-pixel images be described well by only a few numbers?', o: ['Neighboring pixels are strongly related and the 9s look alike, so there are few real degrees of freedom', 'Because most pixels are always exactly 0', 'Because PCA throws away the images', 'Because 256 is a small number'], a: 0, w: 'The book calls this the number of effective degrees of freedom, which is much less than D.' },
+    { l: 'Undergrad', q: 'An "eigenface" (or eigen-image) is…', o: ['a column of W reshaped back into an image', 'the average face', 'a face from the training set chosen at random', 'the image with the largest pixel values'], a: 0, w: 'Each basis vector wₖ ∈ ℝᴰ has one entry per pixel, so it can be shown as an image (Fig. 20.3b).' },
+    { l: 'Undergrad', q: 'In Fig. 20.2, the grid lines are drawn at…', o: ['the 5, 25, 50, 75, 95% quantiles of each projected coordinate', 'equally spaced values from −4 to 4', 'the eigenvalues', 'the locations of the labeled points'], a: 0, w: 'Quantiles keep the grid inside the data, and the circled images are the nearest projections to each vertex.' },
+    { l: 'HS', q: 'Why do the eigen-images have both red (negative) and blue (positive) pixels?', o: ['They are directions you add to or subtract from the mean, so they push some pixels up and others down', 'Because of a display bug', 'Because the pixels in the original images are negative', 'Because they are random noise'], a: 0, w: 'x̂ = x̄ + Σ zₖwₖ: a positive zₖ adds the blue parts and removes the red parts.' },
+    { l: 'Grad', q: 'Why does using z = Wᵀx in a nearest-neighbor face recognizer often work better than raw pixels?', o: ['The discarded low-variance directions are mostly noise, and distances in a few dimensions are cheaper and less noisy', 'PCA adds label information', 'It increases the dimensionality', 'It makes all faces identical'], a: 0, w: 'Faster and more reliable [MWP98]. Lighting can still dominate the top PCs, which motivated Fisherfaces.' }
+  ],
+  cc: [
+    { l: 'Kid', q: 'Why does weighing people in grams trick PCA?', o: ['The numbers get huge, so weight looks way more spread out than it really is', 'Grams are heavier than kilograms', 'PCA cannot read grams', 'It makes everyone the same weight'], a: 0, w: 'Variance depends on units. Standardizing removes the units before PCA.' },
+    { l: 'HS', q: 'Standardizing a feature means…', o: ['subtracting its mean and dividing by its standard deviation', 'sorting it from smallest to largest', 'squaring it', 'replacing it with its rank'], a: 0, w: 'Every feature then has mean 0 and variance 1, with no units.' },
+    { l: 'Undergrad', q: 'Running PCA on standardized data is equivalent to running it on…', o: ['the correlation matrix', 'the Gram matrix', 'the inverse covariance', 'the identity matrix'], a: 0, w: 'Cov of standardized data = S⁻¹Σ̂S⁻¹ = R.' },
+    { l: 'Undergrad', q: 'For two standardized features with correlation ρ > 0, PC1 is…', o: ['(1, 1)/√2, whatever the value of ρ', 'along the feature with larger variance', '(1, 0)', '(ρ, 1 − ρ)'], a: 0, w: 'R = [[1, ρ], [ρ, 1]] has eigenvectors (1, ±1)/√2. Only the variance share (1 + ρ)/2 depends on ρ.' },
+    { l: 'HS', q: 'In the Play box, switching weight from lb to oz makes the raw PC1…', o: ['swing toward the weight axis', 'swing toward the height axis', 'stay exactly the same', 'disappear'], a: 0, w: 'oz multiplies weight by 16, so its variance grows by 256 and dominates.' },
+    { l: 'Grad', q: 'When might you NOT want to standardize before PCA?', o: ['When all features share meaningful units, like pixel intensities, and low-variance features are mostly noise', 'Never; you must always standardize', 'When N > D', 'When the data are centered'], a: 0, w: 'Standardizing blows near-constant noisy features up to unit variance. Image and spectral PCA usually use the covariance.' }
+  ],
+  hd: [
+    { l: 'Kid', q: 'With 10 kids and 1,000 facts each, which is quicker to compare?', o: ['Every kid with every kid', 'Every fact with every fact', 'They take the same time', 'Neither can be done'], a: 0, w: '10×10 comparisons instead of 1,000×1,000, and you can get the same answer.' },
+    { l: 'HS', q: 'XXᵀ is N×N and XᵀX is D×D. When is the Gram matrix XXᵀ the better one to use?', o: ['When D > N', 'When N > D', 'Always', 'Never'], a: 0, w: 'Eigendecomposition cost grows like size³, so pick the smaller matrix.' },
+    { l: 'Undergrad', q: 'If XXᵀu = λu, then an eigenvector of XᵀX with the same eigenvalue is…', o: ['Xᵀu', 'Xu', 'u', 'XXᵀu'], a: 0, w: 'Multiply both sides by Xᵀ: XᵀX(Xᵀu) = λ(Xᵀu) (Eq. 20.21).' },
+    { l: 'Undergrad', q: 'The vector Xᵀuⱼ has squared length…', o: ['λⱼ, so we divide by √λⱼ', '1 already', 'N', 'D'], a: 0, w: '‖Xᵀuⱼ‖² = uⱼᵀXXᵀuⱼ = λⱼ, hence V = XᵀUΛ^(−½) (Eq. 20.22).' },
+    { l: 'Undergrad', q: 'After centering N points, at most how many eigenvalues of XᵀX are nonzero?', o: ['min(N − 1, D)', 'D', 'N + 1', 'N·D'], a: 0, w: 'Centering removes one degree of freedom. Zero eigenvalues can\'t be normalized, but they carry no variance.' },
+    { l: 'Grad', q: 'Besides speed, why does the Gram-matrix route matter?', o: ['It only needs inner products xᵢᵀxⱼ, which enables kernel PCA', 'It gives different, better eigenvectors', 'It avoids centering', 'It makes the eigenvalues larger'], a: 0, w: 'Replace xᵢᵀxⱼ with 𝒦(xᵢ, xⱼ) and center in feature space (§20.4.6).' }
+  ],
+  svd: [
+    { l: 'Kid', q: 'What happens to the rebuilt 9s when you use more SVD "layers" (bigger L)?', o: ['They look more like the real 9s', 'They look less like the real 9s', 'They turn into 8s', 'Nothing changes'], a: 0, w: 'More layers, better picture. With all of them you get the exact image back.' },
+    { l: 'HS', q: 'In X ≈ U S Vᵀ, the numbers in S (singular values) are…', o: ['the strengths of each piece, sorted from biggest to smallest', 'the pixel values', 'random numbers', 'the labels'], a: 0, w: 'Keeping the top L pieces gives the best L-piece approximation.' },
+    { l: 'Undergrad', q: 'For centered X, the principal directions W are…', o: ['the right singular vectors V_X', 'the left singular vectors U_X', 'the singular values', 'the rows of X'], a: 0, w: 'XᵀX = V S² Vᵀ, so V_X are the covariance eigenvectors.' },
+    { l: 'Undergrad', q: 'Eigenvalues of the covariance relate to singular values of X by…', o: ['λₖ = sₖ²/N', 'λₖ = sₖ', 'λₖ = √sₖ', 'λₖ = N sₖ'], a: 0, w: 'Σ̂ = XᵀX/N = V(S²/N)Vᵀ. The table checks it numerically.' },
+    { l: 'Undergrad', q: 'The PC scores Z = XW equal…', o: ['U_X S_X', 'V_X S_X', 'S_X', 'U_X V_Xᵀ'], a: 0, w: 'XW = U S Vᵀ V = U S (Eq. 20.23).' },
+    { l: 'Grad', q: 'Why does the randomized SVD use power iterations (q > 0)?', o: ['To sharpen the decay of the spectrum so the random subspace captures the top singular vectors better', 'To make the algorithm deterministic', 'To compute the mean', 'To make X sparse'], a: 0, w: 'They replace X with (XXᵀ)^q X, raising singular values to the 2q+1 power. Re-orthonormalize between steps.' }
+  ],
+  re: [
+    { l: 'Kid', q: 'Why doesn\'t "how well does it copy?" tell us when to stop adding knobs?', o: ['More knobs always copy better, even for brand-new pictures', 'More knobs make the copies worse', 'Copies are always perfect', 'Knobs can\'t be counted'], a: 0, w: 'With all 256 knobs, any picture can be copied exactly.' },
+    { l: 'HS', q: 'In supervised learning, test error usually makes a U-shape as complexity grows. PCA\'s test reconstruction error…', o: ['keeps going down', 'also makes a U-shape', 'goes straight up', 'stays flat'], a: 0, w: 'Fig. 20.6b: a bigger subspace is closer to every point, including test points.' },
+    { l: 'Undergrad', q: 'At L = rank(X_train), the training reconstruction error is…', o: ['0', 'λ₁', 'the same as with L = 0', 'infinite'], a: 0, w: 'All remaining eigenvalues are 0, so Σ_{j>L} λⱼ = 0.' },
+    { l: 'Undergrad', q: 'The book\'s explanation for the missing U-shape is that PCA…', o: ['is not a proper generative model of the data', 'overfits too fast', 'uses the wrong distance', 'requires labels'], a: 0, w: 'There is no likelihood penalty for extra dimensions. PPCA (§20.2) fixes this.' },
+    { l: 'Undergrad', q: 'Going from L to L + 1 components changes a point\'s squared error by…', o: ['−z²_{L+1}, never an increase', '+z²_{L+1}', '±λ_{L+1}, sign depends on the point', 'nothing'], a: 0, w: 'Pythagoras with nested subspaces: ‖x − x̂‖² = ‖x − μ‖² − Σ_{k≤L} zₖ².' },
+    { l: 'Grad', q: 'Which held-out procedure CAN give a U-shaped curve for choosing L?', o: ['Cross-validating the PPCA likelihood, or holding out matrix entries and imputing them', 'Test-set reconstruction error with the same W', 'Training reconstruction error', 'Counting nonzero eigenvalues'], a: 0, w: 'A model that pays for capacity (PPCA), or a CV scheme where held-out values don\'t choose their own projection.' }
+  ],
+  scree: [
+    { l: 'Kid', q: 'What does the "rubble" at the bottom of the scree plot stand for?', o: ['Small leftover wiggles that are mostly noise', 'The most important knobs', 'Missing data', 'Mistakes in the drawing'], a: 0, w: 'The tall "cliff" bars are the components worth keeping.' },
+    { l: 'HS', q: 'A scree plot shows…', o: ['the eigenvalues, sorted from largest to smallest', 'the data points', 'the reconstruction of one image', 'the labels'], a: 0, w: 'Each eigenvalue is the variance along one principal direction.' },
+    { l: 'Undergrad', q: 'Training reconstruction error with L components equals…', o: ['Σ_{j=L+1}^D λⱼ', 'Σ_{j=1}^L λⱼ', 'λ_L', 'λ_L / λ₁'], a: 0, w: 'Eq. 20.26 (Exercise 20.4). The discarded bars sum to the error.' },
+    { l: 'Undergrad', q: 'The fraction of variance explained F_L…', o: ['increases with L toward 1', 'decreases with L', 'is always 0.9', 'is the same as λ_L'], a: 0, w: 'F_L = Σ_{j≤L} λⱼ / Σ_{j\'≤Lmax} λⱼ\' (Eq. 20.27).' },
+    { l: 'HS', q: 'A common rule picks L as…', o: ['the smallest L with F_L ≥ 90% (or 95%)', 'the largest L', 'always L = 2', 'the L where λ_L is biggest'], a: 0, w: 'Drag τ in the Play box to see which L each threshold picks.' },
+    { l: 'Grad', q: 'With isotropic noise and D/N = γ, pure-noise sample eigenvalues…', o: ['spread over the Marchenko–Pastur bulk σ²(1 ± √γ)², not around σ²', 'all equal σ² exactly', 'are all zero', 'grow linearly with j'], a: 0, w: 'A spike is detectable only above σ²(1 + √γ) (BBP). Fixed variance thresholds ignore this.' }
+  ],
+  prof: [
+    { l: 'Kid', q: 'In the tall-kids/short-kids story, what makes a split "good"?', o: ['Everyone in each group looks alike', 'Both groups have the same number of kids', 'The tallest kid is alone', 'The split is in the middle'], a: 0, w: 'Tight groups = small pooled variance = high profile likelihood.' },
+    { l: 'HS', q: 'The profile likelihood looks for…', o: ['the "knee" where the eigenvalues switch from big to small', 'the largest eigenvalue', 'the average eigenvalue', 'the number of data points'], a: 0, w: 'It tries every split and scores how well two flat groups fit.' },
+    { l: 'Undergrad', q: 'Why must σ² be shared between the two groups?', o: ['Otherwise a group with very few values gets σ² → 0 and infinite likelihood', 'To make the math shorter', 'Because eigenvalues are always equal', 'Because the book forgot'], a: 0, w: 'The book: shared σ² prevents overfitting when one regime has less data.' },
+    { l: 'Undergrad', q: 'μ₁(L) in Eq. 20.28 is…', o: ['the average of the first L eigenvalues', 'the largest eigenvalue', 'the average of all eigenvalues', 'the median eigenvalue'], a: 0, w: 'μ₂(L) is the average of the rest. These are the Gaussian MLEs.' },
+    { l: 'Undergrad', q: 'Plugging in the MLEs, maximizing ℓ(L) is the same as…', o: ['minimizing the pooled within-group variance σ²(L)', 'maximizing μ₁ − μ₂', 'maximizing L', 'minimizing μ₁'], a: 0, w: 'ℓ(L) = −(Lmax/2)(log 2πσ²(L) + 1).' },
+    { l: 'Grad', q: 'One weakness of running the profile likelihood on raw eigenvalues is…', o: ['a single huge λ₁ can dominate and pull L* to 1; log λ is a common fix', 'it needs labels', 'it can only return even L', 'it requires the test set'], a: 0, w: 'It is contiguous 1-D 2-means, so large absolute values dominate. Try the log toggle on the digits.' }
+  ]
+};
+/* ---------- levels ---------- */
+const LEVELS = { 1: 'Kid', 2: 'High school', 3: 'Undergrad', 4: 'Grad / MLE' };
+let level = 3;
+try { const s = localStorage.getItem('pca-lab-level'); if (s && LEVELS[s]) level = +s; } catch (e) {}
+$$('[data-lv]').forEach(card => {
+  const kids = [...card.children];
+  const tabs = document.createElement('div'); tabs.className = 'lvtabs'; tabs.setAttribute('role', 'tablist');
+  tabs.innerHTML = Object.entries(LEVELS).map(([k, v]) => `<button role="tab" data-tab="${k}">${v}</button>`).join('');
+  const body = document.createElement('div'); body.className = 'lvbody';
+  kids.forEach(k => body.appendChild(k));
+  card.appendChild(tabs); card.appendChild(body);
+  tabs.addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) showCard(card, +b.dataset.tab); });
+});
+function showCard(card, l) {
+  $$('.lvbody > [data-l]', card).forEach(d => { d.hidden = +d.dataset.l !== l; });
+  $$('[data-tab]', card).forEach(b => { b.classList.toggle('on', +b.dataset.tab === l); b.setAttribute('aria-selected', +b.dataset.tab === l); });
+}
+function setLevel(l) {
+  level = l; try { localStorage.setItem('pca-lab-level', l); } catch (e) {}
+  $$('[data-lv]').forEach(c => showCard(c, l));
+  $$('[data-setl]').forEach(b => b.classList.toggle('on', +b.dataset.setl === l));
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-setl]'); if (b) setLevel(+b.dataset.setl); });
+setLevel(level);
+
+/* ---------- score ---------- */
+const SCORE = { right: 0, total: 0, paint() { $('#score').innerHTML = `Quiz <b>${this.right}</b> / ${this.total}`; } };
+(function () {
+  $$('[data-quiz]').forEach(box => {
+    const qs = QUIZ[box.dataset.quiz]; SCORE.total += qs.length;
+    let local = 0;
+    const order = q => { let h = 0; for (const ch of q.q) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); const r = rng(h), ix = q.o.map((_, j) => j); for (let j = ix.length - 1; j > 0; j--) { const k = Math.floor(r() * (j + 1)); [ix[j], ix[k]] = [ix[k], ix[j]]; } return ix; };
+    function build() {
+      box.innerHTML = qs.map((q, i) => `<div class="qq" data-i="${i}"><p class="qt"><span class="qn">Q${i + 1}</span>${q.q}<span class="ql">${q.l}</span></p><div class="opts">${order(q).map(j => `<button class="opt" data-j="${j}">${q.o[j]}</button>`).join('')}</div></div>`).join('') +
+        `<div class="quizfoot"><span class="qs">0 / ${qs.length} correct</span><button class="b qreset">Reset these questions</button></div>`;
+    }
+    build();
+    box.addEventListener('click', e => {
+      if (e.target.closest('.qreset')) { SCORE.right -= local; local = 0; build(); SCORE.paint(); return; }
+      const b = e.target.closest('.opt'); if (!b || b.disabled) return;
+      const card = b.closest('.qq'), q = qs[+card.dataset.i], ok = +b.dataset.j === q.a;
+      $$('.opt', card).forEach(x => { x.disabled = true; if (+x.dataset.j === q.a) x.classList.add('right'); });
+      if (!ok) b.classList.add('wrong');
+      card.insertAdjacentHTML('beforeend', `<p class="why-ans"><b class="${ok ? 'ok' : 'no'}">${ok ? 'Correct.' : 'Not quite.'}</b> ${q.w}</p>`);
+      if (ok) { local++; SCORE.right++; }
+      $('.qs', box).textContent = `${local} / ${qs.length} correct`;
+      SCORE.paint();
+    });
+  });
+  SCORE.paint();
+})();
+
+/* ---------- rail highlight + theme changes ---------- */
+(function () {
+  const links = $$('#rail a'), secs = links.map(a => $(a.getAttribute('href')));
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + e.target.id)); });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  secs.forEach(s => s && io.observe(s));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => renderers.forEach(f => f()));
+})();
+})();
+</script>
+</body>
+</html>
